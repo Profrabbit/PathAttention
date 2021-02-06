@@ -38,7 +38,11 @@ class Model(nn.Module):
         mask_ = (mask > 0).unsqueeze(1).repeat(1, mask.size(1), 1).unsqueeze(1)
         # bs, 1,max_code_length,max_code_length
 
-        memory = self.encoder(content_, paths_, mask_)
+        # path_map bs,max_code_length,max_code_length
+        path_mask_ = (path_map > -1).unsqueeze(1).unsqueeze(-1)
+        # ==> bs,1,max_code_length,max_code_length,1
+
+        memory = self.encoder(content_, paths_, mask_, path_mask_)
         # bs, max_code_length, hidden
         return memory, (mask == 0)
 

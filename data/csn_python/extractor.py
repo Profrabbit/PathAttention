@@ -262,6 +262,20 @@ def process_path(code_tokens, original_code, docstring, args):
     [1,2]:[[a,b,c,d],inter,[e,f,g,h]])
     code_tokens: ['','',]
     '''
+
+    def get_equal_lis(paths, sample_path):
+        if len(paths) == 0:
+            paths.append(sample_path)
+            return len(paths)
+        else:
+            for i, _lis in enumerate(paths):
+                if _lis == sample_path:
+                    return i
+            paths.append(sample_path)
+            return len(paths)
+
+    paths = []
+    paths_map = []
     ast = parse_code(original_code)
     func_name = None
     for node_index, node in enumerate(ast):
@@ -279,13 +293,16 @@ def process_path(code_tokens, original_code, docstring, args):
         if (len(prefix) + 1 + len(suffix) <= args.max_path_length) \
                 and (abs(len(prefix) - len(suffix)) <= args.max_path_width):
             # if len(prefix) + 1 + len(suffix) <= args.max_path_length:
+            sample_path = prefix + [lca] + suffix
+            paths_map.append([[v_node['idx'], u_node['idx']], get_equal_lis(paths, sample_path)])
 
-            paths.append([[v_node['idx'], u_node['idx']], prefix + [lca] + suffix])
+            re_sample_path = list(reversed(sample_path))
+            paths_map.append([[u_node['idx'], v_node['idx']], get_equal_lis(paths, re_sample_path)])
 
             # paths[str(tuple((v_node['idx'], u_node['idx'])))] =
             # paths[tuple((v_node['idx'], u_node['idx']))] = prefix + [lca] + suffix
 
-    return paths, code_tokens, func_name
+    return paths, code_tokens, func_name, paths_map
 
 
 def inter_node_map(node_type):
@@ -363,7 +380,7 @@ def count(sample):
         max_length = len(sample['content'])
     if f > max_f_length:
         max_f_length = f
-    for [a, b] in sample['paths']:
+    for b in sample['paths']:
         _l = len(b)
         # assert _l <= 10
         if _l in path_count:
@@ -409,7 +426,7 @@ def convert(text_data, args):
             docstring = file_json['docstring']
             code_tokens = file_json['code_tokens']
             try:
-                paths, code_tokens, func_name = process_path(code_tokens, original_code, docstring, args)
+                paths, code_tokens, func_name, paths_map = process_path(code_tokens, original_code, docstring, args)
             except Exception:
                 # print('Can not been parsed')  # 明天这个地方设一个统计的东西  然后把所有的东西都统计一下
                 continue
@@ -418,9 +435,10 @@ def convert(text_data, args):
             content = split_token(code_tokens)
             func_name = split_token([func_name])[0]
             static_text_vocab(content, func_name)
-            data = {'content': content,
-                    'paths': paths,
-                    'target': func_name}  # 这个地方的问题是 第一没有存函数名，第二是应该优化一下路径的字符串 不然还是太大了
+            data = {'target': func_name,
+                    'content': content,
+                    'paths': paths, 'paths_map': paths_map
+                    }  # 这个地方的问题是 第一没有存函数名，第二是应该优化一下路径的字符串 不然还是太大了
             # save_data = [func_name, content, paths]
             all_data.append(data)
             f.write(json.dumps(data) + '\n')
@@ -488,11 +506,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', choices=['train', 'valid', 'test'], type=str, default='valid')
     parser.add_argument('--save_dir', type=str, default='./data')
-    parser.add_argument('--file', type=str, )  # default='./test.jsonl'
-    parser.add_argument('--file_num', type=int, default=1000)
+    parser.add_argument('--file', type=str, )  # default='./test.jsonl' not work
+    parser.add_argument('--file_num', type=int, default=1000)  # not work
     parser.add_argument('--max_path_length', type=int, default=8)
     parser.add_argument('--max_path_width', type=int, default=2)
-    parser.add_argument('--text_vocab', type=bool, default=False)
+    parser.add_argument('--text_vocab', type=bool, default=True)
     args = parser.parse_args()
     process(args)
 
@@ -665,5 +683,22 @@ avg length = 129.68 part=0.08
 part计算方式是路径个数除以length的平方
 
 所以考虑将path的长度设置为20，
+
+'''
+
+'''
+仅处理valid数据
+Inter Node Vocab Size = 128
+Source Vocab Size = 21363
+Target Vocab Size = 7675
+
+'''
+
+'''
+这里边会存在很多完全一样的边  所以可以先建立一个边的不重复的list
+然后这样就可以节省很多空间
+
+注意：： 在计算的时候 设置的max path num应该是unique的path的num
+因为相同的path batch是没有什么意义的 纯属浪费计算资源
 
 '''

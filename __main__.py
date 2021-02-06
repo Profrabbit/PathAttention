@@ -17,7 +17,7 @@ def train():
                         help="avg is 128, max is 1200, <256=0.925  <512=0.985")
     parser.add_argument("--sub_token_length", type=int, default=5, help="")
     parser.add_argument("--max_path_length", type=int, default=8, help="now part=0.01")
-    parser.add_argument("--max_path_num", type=int, default=256, help="now part=0.01  the num of undirected edge")
+    parser.add_argument("--max_path_num", type=int, default=512, help="now part=0.01  the num of directed unique edge")
     parser.add_argument("--max_target_len", type=int, default=8,
                         help="valid token + 1(special token)   function num: avg is 2.5, max is 7")
     # vocab
@@ -40,7 +40,7 @@ def train():
     parser.add_argument("--embedding_file", type=str, default='./......', help="")  # TODO glove path
     # path embedding
     parser.add_argument("--path_embedding_size", type=int, default=256, help="hidden size of transformer model")
-    parser.add_argument("--path_embedding_num", type=int, default=132,
+    parser.add_argument("--path_embedding_num", type=int, default=128,
                         help="node type num, and also be used for padding idx!!")  # TODO set node num
     # transformer
     parser.add_argument("--activation", type=str, default='RELU', help="", choices=['GELU', 'RELU'])

@@ -41,13 +41,13 @@ class PathEmbedding(nn.Module):
         # bs*2*max_path_num+1,hidden
         # cat a zero tensor to index
 
-        m_1 = path_map.view(-1)
+        p_m_1 = path_map.view(-1)
         # bs*max_code_length*max_code_length
 
-        m_2 = m_1.masked_fill(m_1 == -1, p_7.shape[0])
+        p_m_2 = p_m_1.masked_fill(p_m_1 == -1, p_7.shape[0])
         # change -1 to max num, get zero tensor
 
-        p_8 = torch.index_select(temp_p_7, 0, m_2)
+        p_8 = torch.index_select(temp_p_7, 0, p_m_2)
         # bs*max_code_length*max_code_length,hidden
 
         p_9 = p_8.view(path_map.shape[0], path_map.shape[1], path_map.shape[2], -1)

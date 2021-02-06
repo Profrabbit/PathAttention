@@ -1,10 +1,8 @@
 absl-py==0.8.1
 agenda==1.0.2
-allennlp==1.1.0
 asdl==0.1.5
 astor==0.7.1
 astunparse==1.6.3
-atomicwrites==1.4.0
 attrs==18.2.0
 Babel==2.7.0
 backcall==0.2.0
@@ -70,7 +68,6 @@ nltk==3.4.4
 nni==1.9
 numpy==1.17.3
 opencv-contrib-python==4.4.0.46
-opennre==0.1
 opt-einsum==3.1.0
 overrides==3.1.0
 packaging==20.4
@@ -90,7 +87,6 @@ py==1.9.0
 py2neo==4.3.0
 py4j==0.10.7
 Pygments==2.3.1
-pygraphviz @ file:///C:/Users/80655/Downloads/pygraphviz-1.6-cp37-cp37m-win_amd64.whl
 pymongo==3.11.2
 PyMySQL==0.10.0
 pyparsing==2.4.2
@@ -123,8 +119,6 @@ srsly==1.0.2
 subword-nmt==0.3.6
 tensorboard==1.15.0
 tensorboardX==2.1
-tensorflow==1.15.0
-tensorflow-estimator==1.15.1
 termcolor==1.1.0
 thinc==7.4.1
 threadpoolctl==2.1.0
@@ -150,3 +144,4 @@ wget==3.2
 wordninja==2.0.0
 wrapt==1.11.2
 zipp==3.2.0
+

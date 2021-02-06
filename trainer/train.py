@@ -52,19 +52,20 @@ class Trainer:
                 self.model.eval()
             data = {key: value.to(self.device) for key, value in data.items()}
             out = self.model(data)
-            loss = self.criterion(out.view(out.shape[0] * out.shape[1], -1), data['f_target'].view(-1))
+            loss = self.criterion(out.view(out.shape[0] * out.shape[1], -1),
+                                  data['f_target'].view(-1))  # avg at every step
             if train:
                 self.optim.zero_grad()
+                loss.backward()
                 if self.clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-                loss.backward()
                 self.optim.step()
             avg_loss += loss.item()
             post_fix = {
                 'str': str_code,
                 "epoch": epoch,
                 "iter": i,
-                "Iter loss": loss.item() / self.args.batch_size,
+                "Iter loss": loss.item(),
             }
             if train:
                 self.iter += 1
@@ -76,6 +77,7 @@ class Trainer:
     def predict(self, epoch):
         true_positive, false_positive, false_negative = 0, 0, 0
 
+        # TODO check at this
         def filter_special(lis_):
             return list(filter(lambda x: x not in self.t_vocab.special_index, lis_))
 

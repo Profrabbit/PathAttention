@@ -25,7 +25,7 @@ class MultiHeadedAttention(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, query, key, value, relation=None, mask=None):
+    def forward(self, query, key, value, relation=None, mask=None, path_mask=None):
         '''
 
         :param query: bs, max_code_length, hidden
@@ -33,6 +33,7 @@ class MultiHeadedAttention(nn.Module):
         :param value: bs, max_code_length, hidden
         :param relation: bs, max_code_length,max_code_length, hidden
         :param mask:bs, 1,max_code_length,max_code_length
+        :param path_mask: bs,1,max_code_length,max_code_length,1
         :return:
         '''
         batch_size, max_code_length = query.size(0), query.size(1)
@@ -43,6 +44,11 @@ class MultiHeadedAttention(nn.Module):
             relation_k, relation_v = [l(x).view(batch_size, max_code_length, max_code_length, self.h,
                                                 self.d_k).transpose(2, 3).transpose(1, 2) for l, x in
                                       zip([self.linear_layers[1], self.linear_layers[2]], (relation, relation))]
+            # relation_k :bs,h,max_code_length,max_code_length,dim
+            if path_mask is not None:
+                relation_k = relation_k.masked_fill(path_mask == 0, 0.0)
+                relation_v = relation_v.masked_fill(path_mask == 0, 0.0)
+
         else:
             relation_k, relation_v = None, None
 
