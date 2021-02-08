@@ -1,0 +1,116 @@
+反常的实验现象：
+1）训练和测试都跑的时候 总共11273mb 只训练6547mb
+2）只训练且不使用relation 1819mb
+差的好远啊这
+
+实验搜索：
+
+1，默认no relation no drop clip=1
+对lr进行寻找
+0.1 0.01 0.001 0.0001 0.00001
+
+暂时的结论是0.1完全不能收敛 且loss开始飙升
+其他几个选项基本没有差别
+所以决定选定0.001作为lr
+
+13-52-46 -> 13-56-37
+
+2，对clip的作用进行考察
+因为观察到模型其实会在5.72k step处下降到1.0左右 但是随后却回升了
+默认lr=0.001 no drop no relation
+clip=0.01 clip=0.1 clip=1 no clip（clip=0）
+
+14-21-46 -> 14-24-12
+
+大致情况是 四个基本上差别不大 整体趋势都是一样的
+所以问题不是出在这里 因此默认clip=0 no clip
+
+3,对layer进行考察
+layers= 1 2 4 8
+15-02-17 -> 15-03-08
+效果都不很垃圾 硬要比的话 1层的loss降得更低点
+
+4,发现embedding默认是freeze的 所以关掉这个开关重现跑一次
+layers= 1
+15-53-01
+仍然是没有什么变化
+
+
+5,去除掉dataset里边on memory对于tiny data的bug后
+重新进行实验
+relation=False tinydata=100   embedding的freeze也保持更新状态
+layers=1 2 4 8
+16-30-12 -> 16-33-58
+就1layers来说 和之前有了明显的区别 之前loss在5.5和6之间 而这次在3.5和4之间
+并且有明显的log形收敛过程
+四个参数之间的差别是 1layer的loss约等于3.5 而2 4 8的loss基本相等 约3.8左右
+总体而言四个结果仍然不令人满意
+
+6，因为layer=1时收敛较快 且四个参数的学习曲线基本一致 所以设置layer=1作为默认参数
+对lr进行搜索
+
+lr= 0.1 0.01 0.001 0.0001
+0.0001的效果貌似很好啊
+16-57-35 -> 16-59-30
+0.1的loss基本飞到天上了
+0.01和0.001的效果基本没有什么差别 在3.5左右徘徊
+而0.0001的结果很好 波动很小 而且快速收敛 很好的结果！基本上loss到达了0.01左右
+
+尝试对比一下0.00001 1e-5 看看哪个结果更好点 17-07-42
+基本上已经确定模型没有问题了
+结果发现0.00001的模型不稳定 波动较大 所以最终决定选取0.0001
+
+7，确定了lr=1e-4 于是对layer进行恢复 观察是否稳定
+将layer设置到8层之后 收敛曲线开始变得波动
+17-14-39
+但值得注意的是 这个曲线仍然是比{1e-5,1layer}的曲线要好的
+
+不过慎重起见还是考虑对8layer时进行1e-5的尝试 17-23-03
+（观察期间和上边的所有实验进行了对比 发现明显好了很多）
+
+结果应该是比较明显的 1e-4始终是最好的 但是1e-5在应对多层layer时也会有一定的效果
+
+8，lr=1e-4 layers=8 尝试clip
+clip=1 17-39-27
+clip=0.1 17-41-25
+clip基本上不会有什么作用 不过可能会对relation起作用
+
+9，lr=1e-4 no clip layers=8 relation
+17-49-02
+这个结果貌似还比no relation好一点
+综合来看relation 收敛要稍微更快一些 震动幅度也比较小
+
+先把数据解决了吧
+
+10,
+train：
+save inter node dic
+Save Text Vocab
+Inter Node Vocab Size = 164
+Source Vocab Size = 146333
+Target Vocab Size = 43569
+valid:
+save inter node dic
+Inter Node Vocab Size = 164
+Source Vocab Size = 22900
+Target Vocab Size = 7675
+test:
+save inter node dic
+Inter Node Vocab Size = 164
+Source Vocab Size = 18173
+Target Vocab Size = 6290
+
+Pretrain Word = 0.39180 for source
+Pretrain Word = 0.58823 for target
+
+
+
+1, 20-40-29 完整数据实验
+
+2, 跑的太慢了，所以考虑将数据转成pickle全部读取到memory里加速
+之前的超参数下
+2,8,4 per gpus
+缩小参数后
+24,24,16 three gpus
+8,8,5 per gpus
+且在on memory的作用下 能够快速加载

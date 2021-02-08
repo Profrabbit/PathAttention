@@ -8,6 +8,13 @@ import itertools
 import re
 from copy import deepcopy
 
+
+def boolean_string(s):
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
+
 METHOD_NAME, NUM, Str = 'METHODNAME', 'NUM', 'STR'
 USED = 'USED'
 
@@ -394,10 +401,10 @@ def count(sample):
     else:
         code_count[code_len] = 1
 
-    if c % 500 == 0:
-        print('part = {:.5f}'.format(path_num / length_sqa))
-        print('avg length = {:.5f},max={}'.format(length / c, max_length))
-        print('avg func length = {:.5f},max={}'.format(f_length / c, max_f_length))
+    # if c % 500 == 0:
+    #     print('part = {:.5f}'.format(path_num / length_sqa))
+    #     print('avg length = {:.5f},max={}'.format(length / c, max_length))
+    #     print('avg func length = {:.5f},max={}'.format(f_length / c, max_f_length))
 
 
 def static_text_vocab(content, func_name):
@@ -415,8 +422,8 @@ def static_text_vocab(content, func_name):
 
 
 def convert(text_data, args):
-    all_data = []
-    num = 0
+    # all_data = []
+    # num = 0
     with open(os.path.join(args.save_dir, args.type + '.json'), 'w') as f:
         for line in tqdm(text_data):
             # if num >= args.file_num:
@@ -440,11 +447,11 @@ def convert(text_data, args):
                     'paths': paths, 'paths_map': paths_map
                     }  # 这个地方的问题是 第一没有存函数名，第二是应该优化一下路径的字符串 不然还是太大了
             # save_data = [func_name, content, paths]
-            all_data.append(data)
+            # all_data.append(data)
             f.write(json.dumps(data) + '\n')
-            count(data)
-            num += 1
-    return all_data
+            # count(data)
+            # num += 1
+    # return all_data
 
 
 def process(args):
@@ -456,17 +463,19 @@ def process(args):
             continue
         file_list.append(file)
     all_data = []
+    print(file_list)
     for file in file_list:
         with open(os.path.join(dir_path, file)) as f:
             sample_file = f.readlines()
             all_data += sample_file
+
     if args.file:
         with open(os.path.join(dir_path, args.file)) as f:
             sample_file = f.readlines()
             all_data = sample_file
-    pkl_data = convert(all_data, args)
-    with open(os.path.join(args.save_dir, args.type + '.pkl', ), 'wb') as f:
-        pkl.dump(pkl_data, f)
+    convert(all_data, args)
+    # with open(os.path.join(args.save_dir, args.type + '.pkl', ), 'wb') as f:
+    #     pkl.dump(pkl_data, f)
     with open(inter_dic_path, 'wb') as f:
         print('save inter node dic')
         pkl.dump(path_dic, f)
@@ -502,6 +511,7 @@ def process(args):
     print('Target Vocab Size = {}'.format(len(target_dic)))
 
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', choices=['train', 'valid', 'test'], type=str, default='valid')
@@ -510,7 +520,7 @@ if __name__ == '__main__':
     parser.add_argument('--file_num', type=int, default=1000)  # not work
     parser.add_argument('--max_path_length', type=int, default=8)
     parser.add_argument('--max_path_width', type=int, default=2)
-    parser.add_argument('--text_vocab', type=bool, default=True)
+    parser.add_argument('--text_vocab', type=boolean_string, default=True)
     args = parser.parse_args()
     process(args)
 
@@ -702,3 +712,5 @@ Target Vocab Size = 7675
 因为相同的path batch是没有什么意义的 纯属浪费计算资源
 
 '''
+
+

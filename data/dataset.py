@@ -28,10 +28,14 @@ class PathAttenDataset(Dataset):
         self.args = args
         assert type in ['train', 'test', 'valid']
         if self.on_memory:
-            self.pkl_path = os.path.join(self.dataset_dir, type + '.pkl')
-            with open(self.pkl_path, 'rb') as f:
-                self.data = pkl.load(f)
-                self.corpus_line = len(self.data)
+            # self.pkl_path = os.path.join(self.dataset_dir, type + '.pkl')
+            # with open(self.pkl_path, 'rb') as f:
+            #     self.data = pkl.load(f)
+            #     self.corpus_line = len(self.data)
+            self.json_path = os.path.join(self.dataset_dir, type + '.json')
+            with open(self.json_path, 'r') as f:
+                self.data = f.readlines()
+            self.corpus_line = len(self.data)
         else:
             self.json_path = os.path.join(self.dataset_dir, type + '.json')
             self.corpus_line = 0
@@ -39,11 +43,14 @@ class PathAttenDataset(Dataset):
                 for _ in f:
                     self.corpus_line += 1
             self.file = open(self.json_path, 'r')
+        if self.args.tiny_data > 0:
+            self.corpus_line = self.args.tiny_data
 
     def __len__(self):
         return self.corpus_line
 
     def __getitem__(self, item):
+        assert item < self.corpus_line
         data = self.get_corpus_line(item)
         sample = self.process(data)
         return {key: value if torch.is_tensor(value) else torch.tensor(value) for key, value in sample.items()}
@@ -143,8 +150,12 @@ class PathAttenDataset(Dataset):
 
     def get_corpus_line(self, item):
         if self.on_memory:
-            return self.data[item]
+            data = json.loads(self.data[item])
+            return data
         else:
+            if item == 0:
+                self.file.close()
+                self.file = open(self.json_path, 'r')
             line = self.file.__next__()
             if line is None:
                 self.file.close()

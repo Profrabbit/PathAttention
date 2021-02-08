@@ -14,7 +14,8 @@ class TokenEmbedding(nn.Module):
         self.args = args
         if self.args.pretrain:
             self.get_embedding()
-            self.embedding = nn.Embedding.from_pretrained(self.embedding_matrix, padding_idx=self.vocab.pad_index)
+            self.embedding = nn.Embedding.from_pretrained(self.embedding_matrix, padding_idx=self.vocab.pad_index,
+                                                          freeze=False)
         else:
             self.embedding_dim = self.args.hidden
             self.embedding = nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=self.vocab.pad_index)
@@ -22,29 +23,32 @@ class TokenEmbedding(nn.Module):
                                 self.args.hidden) if self.embedding_dim != self.args.hidden else None
 
     def get_embedding(self):
+        embedding_dir = './catch'
+        if not os.path.exists(embedding_dir):
+            os.makedirs(os.path.join(embedding_dir))
         embedding_path = './catch/{}_embedding.pkl'.format(self.vocab.type)
         if os.path.exists(embedding_path):
             with open(embedding_path, 'rb') as f:
                 embedding = pkl.load(f)
                 print('Load Embedding from Catch')
-                self.embedding_matrix = torch.tensor(embedding)
+                self.embedding_matrix = embedding.clone().detach()
                 assert len(embedding) == self.vocab_size
                 self.embedding_dim = embedding.shape[-1]
         else:
             with open(self.args.embedding_file, 'r') as f:
-                line = f.readline().strip()
+                line = f.readline().strip().split()
                 self.embedding_dim = len(line) - 1
             self.embedding_matrix = torch.randn(self.vocab_size, self.embedding_dim)
             count = 0
-            with open(self.args.embedding_file, 'r') as f:
+            with open(self.args.embedding_file, 'r', encoding='utf-8') as f:
                 print('Create {} Embedding from raw data'.format(self.vocab.type))
                 lines = f.readlines()
                 for line in tqdm(lines):
-                    line = line.strip()
+                    line = line.strip().split()
                     word = line[0]
-                    vector = torch.tensor(np.array(line[1:]).astype(np.float))
                     idx = self.vocab.find(word)
                     if idx != self.vocab.unk_index:
+                        vector = torch.tensor(np.array(line[1:]).astype(np.float))
                         self.embedding_matrix[idx] = vector
                         count += 1
                 print('Pretrain Word = {} for {}'.format((count / self.vocab_size), self.vocab.type))

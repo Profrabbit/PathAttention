@@ -14,31 +14,32 @@ class PathEmbedding(nn.Module):
     def forward(self, paths, paths_mask, path_map):
         '''
 
-        :param paths: bs,2*max_path_num,max_path_length
-        :param paths_mask: bs,2*max_path_num
+        :param paths: bs,max_path_num,max_path_length
+        :param paths_mask: bs,max_path_num
         :param path_map: bs,max_code_length,max_code_length
-        :return:bs,2*max_path_num,hidden
+        :return:bs,max_path_num,hidden
         '''
+        self.rnn.flatten_parameters()
         p_1 = self.embedding(paths)
-        # bs,2*max_path_num,max_path_length,dim
+        # bs,max_path_num,max_path_length,dim
 
         p_2 = p_1.view(-1, p_1.shape[-2], p_1.shape[-1])
-        # bs*2*max_path_num,max_path_length,dim
+        # bs*max_path_num,max_path_length,dim
 
         m_1 = paths_mask.view(-1)
-        # bs*2*max_path_num
+        # bs*max_path_num
 
         m_2, m_2_idx = torch.sort(m_1, descending=True)
         _, re_m_2_idx = torch.sort(m_2_idx)
         p_3 = p_2.index_select(0, m_2_idx)
         p_4 = torch.nn.utils.rnn.pack_padded_sequence(p_3, m_2.cpu(), batch_first=True)
         _, p_5 = self.rnn(p_4)
-        p_6 = p_5.squeeze(0)  # bs*2*max_path_num,max_path_length,hidden
+        p_6 = p_5.squeeze(0)  # bs*max_path_num,max_path_length,hidden
         p_7 = p_6.index_select(0, re_m_2_idx)  # 这个地方不对劲
-        # bs*2*max_path_num,hidden
+        # bs*max_path_num,hidden
 
         temp_p_7 = torch.cat((p_7, torch.zeros(1, p_7.shape[-1]).to(p_7.device)), dim=0)
-        # bs*2*max_path_num+1,hidden
+        # bs*max_path_num+1,hidden
         # cat a zero tensor to index
 
         p_m_1 = path_map.view(-1)

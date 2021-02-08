@@ -59,7 +59,7 @@ class TextVocab(object):
         self.vocab[UNK] = self.unk_index
         self.vocab[EOS] = self.eos_index
         self.vocab[SOS] = self.sos_index
-        self.special_index = [self.pad_index, self.unk_index, self.eos_index, self.sos_index]
+        self.special_index = [self.pad_index, self.eos_index, self.sos_index]
 
     def re_find(self, idx):
         return self.re_vocab.get(idx, UNK)
