@@ -44,14 +44,18 @@ def train():
 
     # trainer
     parser.add_argument("--with_cuda", type=boolean_string, default=True, help="training with CUDA: true, or false")
-    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
+    parser.add_argument("--lr", type=float, default=8e-5, help="learning rate of adam")
     parser.add_argument("--log_freq", type=int, default=5000, help="printing loss every n iter: setting n")
     parser.add_argument("--clip", type=float, default=0, help="0 is no clip")
-    parser.add_argument("--batch_size", type=int, default=24, help="number of batch_size")  # 4,16,8 on two gpus
-    parser.add_argument("--val_batch_size", type=int, default=24, help="number of batch_size of valid")
-    parser.add_argument("--infer_batch_size", type=int, default=16, help="number of batch_size of infer")
-    parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
-    parser.add_argument("--num_workers", type=int, default=4, help="dataloader worker size")
+    parser.add_argument("--batch_size", type=int, default=8, help="number of batch_size")  # 4,16,8 on two gpus
+    parser.add_argument("--val_batch_size", type=int, default=8, help="number of batch_size of valid")
+    parser.add_argument("--infer_batch_size", type=int, default=4, help="number of batch_size of infer")
+    parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
+    parser.add_argument("--num_workers", type=int, default=2, help="dataloader worker size")
+    parser.add_argument("--save", type=boolean_string, default=True, help="whether to save model checkpoint")
+    parser.add_argument("--weight_decay", type=float, default=3e-5, help="")
+    parser.add_argument("--accu_batch_size", type=int, default=128, help="number of batch_size")
+    parser.add_argument("--label_smoothing", type=float, default=0.1, help="number of batch_size")
     # model
     parser.add_argument("--dropout", type=float, default=0.2, help="")
     # token embedding
@@ -61,22 +65,22 @@ def train():
     # 'var/data/pengh/glove.42B.300d.txt'
 
     # path embedding
-    parser.add_argument("--path_embedding_size", type=int, default=32, help="hidden size of transformer model")
+    parser.add_argument("--path_embedding_size", type=int, default=128, help="hidden size of transformer model")
     parser.add_argument("--path_embedding_num", type=int, default=164,
                         help="node type num, and also be used for padding idx!!")  # TODO set node num
     # transformer
     parser.add_argument("--activation", type=str, default='RELU', help="", choices=['GELU', 'RELU'])
-    parser.add_argument("--hidden", type=int, default=128, help="hidden size of transformer model")
-    parser.add_argument("--layers", type=int, default=4, help="number of layers")
+    parser.add_argument("--hidden", type=int, default=256, help="hidden size of transformer model")
+    parser.add_argument("--ff_fold", type=int, default=4, help="ff_hidden = ff_fold*hidden")
+    parser.add_argument("--layers", type=int, default=6, help="number of layers")
+    parser.add_argument("--decoder_layers", type=int, default=1, help="number of decoder layers")
     parser.add_argument("--attn_heads", type=int, default=8, help="number of attention heads")
 
     # advance
     parser.add_argument("--relation", type=boolean_string, default=True, help="")
     parser.add_argument("--tiny_data", type=int, default=0, help="only a little data ")
     parser.add_argument("--seed", type=boolean_string, default=True, help="fix seed")
-
-    # multi GPU Dont know how to use
-    # parser.add_argument('--local_rank', default=-1, type=int, help='node rank for distributed training')
+    parser.add_argument("--data_debug", type=boolean_string, default=False, help="fix seed")
 
     args = parser.parse_args()
     if args.seed:
@@ -97,7 +101,10 @@ def train():
         num_workers = 0
 
     print("Creating Dataloader")
-    train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=num_workers)
+    if args.data_debug:
+        train_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, num_workers=num_workers)
+    else:
+        train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=num_workers)
     test_data_loader = DataLoader(valid_dataset, batch_size=args.val_batch_size, num_workers=num_workers)
     infer_data_loader = DataLoader(valid_dataset, batch_size=args.infer_batch_size, num_workers=num_workers)
     print("Building Model")
@@ -112,6 +119,7 @@ def train():
         trainer.train(epoch)
         trainer.test(epoch)
         trainer.predict(epoch)
+    trainer.writer.close()
 
 
 if __name__ == '__main__':

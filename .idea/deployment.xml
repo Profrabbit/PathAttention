@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="aliyun2" autoUploadExternalChanges="true" showAutoUploadSettingsWarning="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="ssh" autoUploadExternalChanges="true" showAutoUploadSettingsWarning="false">
     <serverData>
       <paths name="aliyun1">
         <serverdata>
@@ -17,6 +17,17 @@
         <serverdata>
           <mappings>
             <mapping deploy="/var/data/pengh/PathAttention" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/data/csn_python/data" />
+            <excludedPath local="true" path="$PROJECT_DIR$/data/csn_python/raw_data" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="ssh">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/dat01/pengh/PathAttention" local="$PROJECT_DIR$" web="/" />
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/data/csn_python/data" />

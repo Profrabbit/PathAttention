@@ -25,15 +25,15 @@ class MultiHeadedAttention(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, query, key, value, relation=None, mask=None, path_mask=None):
+    def forward(self, query, key, value, mask=None, relation=None, path_map=None):
         '''
 
+        :param path_map: bs,max_code_length,max_code_length
         :param query: bs, max_code_length, hidden
         :param key: bs, max_code_length, hidden
         :param value: bs, max_code_length, hidden
-        :param relation: bs, max_code_length,max_code_length, hidden
+        :param relation: bs, max_path_num,hidden
         :param mask:bs, 1,max_code_length,max_code_length
-        :param path_mask: bs,1,max_code_length,max_code_length,1
         :return:
         '''
         batch_size, max_code_length = query.size(0), query.size(1)
@@ -41,18 +41,16 @@ class MultiHeadedAttention(nn.Module):
         query, key, value = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
                              for l, x in zip(self.linear_layers, (query, key, value))]
         if relation is not None:
-            relation_k, relation_v = [l(x).view(batch_size, max_code_length, max_code_length, self.h,
-                                                self.d_k).transpose(2, 3).transpose(1, 2) for l, x in
+            relation_k, relation_v = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2) for l, x in
                                       zip([self.linear_layers[1], self.linear_layers[2]], (relation, relation))]
-            # relation_k :bs,h,max_code_length,max_code_length,dim
-            if path_mask is not None:
-                relation_k = relation_k.masked_fill(path_mask == 0, 0.0)
-                relation_v = relation_v.masked_fill(path_mask == 0, 0.0)
+
+            # relation_k,relation_v :bs,h,max_path_num,dim
 
         else:
             relation_k, relation_v = None, None
 
-        x, attn = self.attention(query, key, value, relation_k, relation_v, mask=mask, dropout=self.dropout)
+        x, attn = self.attention(query, key, value, relation_k, relation_v, path_map=path_map, mask=mask,
+                                 dropout=self.dropout)
 
         x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.h * self.d_k)
 

@@ -4,6 +4,7 @@ import pickle as pkl
 import torch
 import numpy as np
 from tqdm import tqdm
+from .positional import PositionalEmbedding
 
 
 class TokenEmbedding(nn.Module):
@@ -61,6 +62,7 @@ class LeftEmbedding(TokenEmbedding):
     def __init__(self, args, vocab):
         super().__init__(args, vocab)
         assert self.vocab.type == 'source'
+        self.p = PositionalEmbedding(args.hidden, args.max_code_length)
 
     def forward(self, content, content_mask):
         '''
@@ -76,7 +78,7 @@ class LeftEmbedding(TokenEmbedding):
 
         c_2 = c_1.masked_fill(content_mask.unsqueeze(-1) == 0, 0.0)
         c_3 = torch.sum(c_2, dim=-2)  # bs,max_code_length,hidden
-        return c_3
+        return c_3 + self.p(c_3)
 
 
 class RightEmbedding(TokenEmbedding):
@@ -84,6 +86,7 @@ class RightEmbedding(TokenEmbedding):
         super().__init__(args, vocab)
         assert self.vocab.type == 'target'
         self.out = nn.Linear(self.args.hidden, self.vocab_size)
+        self.p = PositionalEmbedding(args.hidden, args.max_target_len)
 
     def forward(self, f_source):
         '''
@@ -95,7 +98,7 @@ class RightEmbedding(TokenEmbedding):
         if self.linear:
             c_1 = self.linear(c_1)
         # bs,max_target_len,hidden
-        return c_1
+        return c_1 + self.p(c_1)
 
     def prob(self, data):
         return self.out(data)

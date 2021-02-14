@@ -1,12 +1,12 @@
 import torch
 from torch import nn
 from torch.optim import Adam
+from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 import os
 from rouge import FilesRouge
-import torch.distributed as dist
 
 
 class Trainer:
@@ -23,23 +23,53 @@ class Trainer:
         self.train_data = train_data
         self.test_data = test_data
         self.infer_data = infer_data
-        self.optim = Adam(self.model.parameters(), lr=self.args.lr)
-        self.criterion = nn.NLLLoss(ignore_index=0)
+        self.optim = Adam(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         self.clip = self.args.clip
-        self.tensorboard_writer = SummaryWriter(
-            'run/{}_{}'.format('relation' if args.relation else 'Naive',
-                               datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')))
+        self.writer_path = '{}_{}'.format('relation' if args.relation else 'Naive',
+                                          datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+        print(self.writer_path)
+        self.tensorboard_writer = SummaryWriter(os.path.join('run', self.writer_path))
+        self.writer = open(os.path.join('run', self.writer_path, 'experiment.txt'), 'w')
+        print(self.args, file=self.writer, flush=True)
         self.iter = -1
         self.log_freq = args.log_freq
         self.t_vocab = t_vocab
         self.dataset_dir = os.path.join('./data', self.args.dataset, 'data')
         self.best_epoch, self.best_loss = 0, float('inf')
+        self.accu_steps = self.args.accu_batch_size // self.args.batch_size
+        self.criterion = nn.NLLLoss(ignore_index=0)
+        if self.args.relation:
+            print(
+                "Total Parameters: {}*1e6".format(sum([p.nelement() for _, p in self.model.named_parameters()]) // 1e6),
+                file=self.writer, flush=True)
+        else:
+            model_parameters = []
+            for name, param in self.model.named_parameters():
+                if 'path' in name:
+                    continue
+                else:
+                    model_parameters.append(param)
+            print("Total Parameters: {}*1e6".format(sum([p.nelement() for p in model_parameters]) // 1e6),
+                  file=self.writer, flush=True)
 
     def train(self, epoch):
         self.iteration(epoch, self.train_data)
 
     def test(self, epoch):
         self.iteration(epoch, self.test_data, train=False)
+
+    def label_smoothing_loss(self, logits, targets, eps=0, reduction='mean'):
+        if eps == 0:
+            return self.criterion(logits, targets)
+        K = logits.shape[-1]
+        one_hot_target = F.one_hot(targets, num_classes=K)
+        l_targets = (one_hot_target * (1 - eps) + eps / K).detach()
+        loss = -(logits * l_targets).sum(-1).masked_fill(targets == 0, 0.0)
+        if reduction == 'mean':
+            return loss.sum() / torch.count_nonzero(targets)
+        elif reduction == 'sum':
+            return loss.sum()
+        return loss
 
     def iteration(self, epoch, data_loader, train=True):
         str_code = "train" if train else "test"
@@ -48,18 +78,23 @@ class Trainer:
                          total=len(data_loader),
                          bar_format="{l_bar}{r_bar}")
         avg_loss = 0.0
+        if train:
+            self.optim.zero_grad()
         for i, data in data_iter:
             data = {key: value.to(self.device) for key, value in data.items()}
             if train:
                 self.model.train()
                 out = self.model(data)
-                loss = self.criterion(out.view(out.shape[0] * out.shape[1], -1),
-                                      data['f_target'].view(-1))  # avg at every step
-                self.optim.zero_grad()
-                loss.backward()
+                loss = self.label_smoothing_loss(out.view(out.shape[0] * out.shape[1], -1),
+                                                 data['f_target'].view(-1),
+                                                 eps=self.args.label_smoothing)  # avg at every step
+                accu_loss = loss / self.accu_steps
+                accu_loss.backward()
                 if self.clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-                self.optim.step()
+                if (i + 1) % self.accu_steps == 0:
+                    self.optim.step()
+                    self.optim.zero_grad()
             else:
                 self.model.eval()
                 with torch.no_grad():
@@ -83,14 +118,17 @@ class Trainer:
             if avg_loss <= self.best_loss:
                 self.best_loss = avg_loss
                 self.best_epoch = epoch
-            print("Best Valid At EP%d_%s, best_loss=" % (self.best_epoch, str_code), self.best_loss)
-        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss)
+            print("Best Valid At EP%d_%s, best_loss=" % (self.best_epoch, str_code), self.best_loss, file=self.writer,
+                  flush=True)
+        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss, file=self.writer, flush=True)
+        print('-------------------------------------', file=self.writer, flush=True)
 
-        save_dir = './checkpoint'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        torch.save(self.model.state_dict(),
-                   os.path.join(save_dir, "{}_{}.pth".format('relation' if self.args.relation else 'Naive', epoch)))
+        if self.args.save:
+            save_dir = './checkpoint'
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            torch.save(self.model.state_dict(),
+                       os.path.join(save_dir, "{}_{}.pth".format(self.writer_path, epoch)))
 
     def predict(self, epoch):
         true_positive, false_positive, false_negative = 0, 0, 0
@@ -165,4 +203,5 @@ class Trainer:
         files_rouge = FilesRouge()
         # rouge = files_rouge.get_scores(predicted_file_name, ref_file_name, avg=True)
         print(
-            "precision={:.6f}, recall={:.6f}, f1={:.6f}".format(precision, recall, f1))
+            "precision={:.6f}, recall={:.6f}, f1={:.6f}".format(precision, recall, f1), file=self.writer, flush=True)
+        print('-------------------------------------', file=self.writer, flush=True)

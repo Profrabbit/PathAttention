@@ -26,16 +26,18 @@ class TransformerBlock(nn.Module):
         self.output_sublayer = SublayerConnection(size=hidden, dropout=dropout)
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, content, paths, mask, path_mask):
+    def forward(self, content, mask, paths, path_map):
         '''
 
+        :param path_map: bs,max_code_length,max_code_length
         :param content: bs, max_code_length, hidden
-        :param paths: bs,max_code_length,max_code_length,hidden
+        :param paths: bs, max_path_num,hidden
         :param mask: bs, 1,max_code_length,max_code_length
         :return:
         '''
         x = self.input_sublayer(content,
-                                lambda _x: self.attention.forward(_x, _x, _x, paths, mask=mask, path_mask=path_mask))
+                                lambda _x: self.attention.forward(_x, _x, _x, mask=mask, relation=paths,
+                                                                  path_map=path_map))
         x = self.output_sublayer(x, self.feed_forward)
         return self.dropout(x)
 
@@ -60,15 +62,15 @@ class Encoder(nn.Module):
             [TransformerBlock(self.hidden, self.attn_heads, self.hidden * 4, self.dropout, self.activation) for _ in
              range(self.n_layers)])
 
-    def forward(self, content, paths, mask, path_mask):
+    def forward(self, content, mask, paths, path_map):
         '''
 
         :param content: bs, max_code_length, hidden
-        :param paths: bs,max_code_length,max_code_length,hidden
+        :param paths: bs,max_path_num,hidden
         :param mask: bs, 1,max_code_length,max_code_length
-        :param path_mask: bs,1,max_code_length,max_code_length,1
+        :param path_map: bs,max_code_length,max_code_length
         :return:
         '''
         for transformer in self.transformer_blocks:
-            content = transformer(content, paths, mask, path_mask)
+            content = transformer(content, mask, paths, path_map)
         return content

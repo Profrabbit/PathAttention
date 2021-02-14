@@ -105,7 +105,7 @@ Pretrain Word = 0.58823 for target
 
 
 
-1, 20-40-29 完整数据实验
+1, 20-40-29 完整数据实验 太慢了 所以cut掉了
 
 2, 跑的太慢了，所以考虑将数据转成pickle全部读取到memory里加速
 之前的超参数下
@@ -114,3 +114,69 @@ Pretrain Word = 0.58823 for target
 24,24,16 three gpus
 8,8,5 per gpus
 且在on memory的作用下 能够快速加载
+目前正在22-25-31上运行
+
+这个超参数忘记是多少了
+
+CUDA_VISIBLE_DEVICES=1,2,3 python __main__.py --batch_size=24 --val_batch_size=24 --infer_batch_size=16 --save=True --activation=GELU --hidden=256 --ff_fold=4 --layers=6 --decoder_layers=1 --relation=True --tiny_data=0 --path_embedding_size=128
+
+
+
+3,
+6a9Oc4i5gH12WPIJZBUX0Fw7zdD8LxA3
+scp -r /var/data/pengh/PathAttention/model/* jinzhi@CNGrid12@119.90.38.52:/dat01/jinzhi/pengh/PathAttention
+ssh g0091
+
+4,进行优化后 感觉效果也不是很明显的样子
+CUDA_VISIBLE_DEVICES=1,2,3 python __main__.py --batch_size=8 --val_batch_size=8 --infer_batch_size=4 --save=True --activation=GELU --hidden=256 --ff_fold=4 --layers=6 --decoder_layers=1 --relation=True --tiny_data=0 --path_embedding_size=128
+relation_23-53-30
+15100mb+14144mb+10006mb = 39250mb
+
+CUDA_VISIBLE_DEVICES=0 python __main__.py --batch_size=8 --val_batch_size=8 --infer_batch_size=4 --save=False --activation=GELU --hidden=256 --ff_fold=4 --layers=6 --decoder_layers=1 --relation=False --tiny_data=0 --path_embedding_size=128
+naive_00-17-35
+4694mb
+
+上下基本差别了八倍的显存
+
+
+目前遇到的问题是
+
+1，显存占用问题
+虽然加上path之后的模型和不加path的模型 参数数量的大小基本没什么差别
+（因为差别仅在于一个node节点的embedding lookup table以及对path序列进行解析的gru，而node节点是封闭词表只有164个）
+
+但是在同样batch的设置下 两个模型对显存的占用却差了八倍左右
+超参数设置为：
+train_batch_size=8 val_batch_size=8 infer_batch_size=4
+hidden=256 d_ff=1024 encoder_layer=6 decoder_layer=1 path_embedding_size=128
+max_code_length=512 sub_token_length=5 max_path_length=8 max_path_num=512 max_target_len=6
+词表大小设置的是：
+source vocab size=17488
+target vocab size=6290
+
+这样的设置下两种模型的参数数量基本上均为75.0*1e6
+而原始模型单卡占用显存4694mb
+在同样的参数设置下，path模型在三张卡上占用显存为
+15100mb+14144mb+10006mb = 39250mb
+
+
+
+
+3，模型收敛速度问题
+现在正在跑的一个path模型 跑了1天多 目前大概到了第11个epoch
+train_loss=3.5328  valid_loss=4.6040
+precision=0.2463 recall=0.1832 f1=0.2101
+觉得这个收敛过程是不是有点太慢了？
+
+
+
+
+
+
+
+
+
+
+
+
+

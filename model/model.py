@@ -11,8 +11,9 @@ class Model(nn.Module):
         self.right_embedding = RightEmbedding(args, t_vocab)
         self.path_embedding = PathEmbedding(args)
         self.decoder_layer = nn.TransformerDecoderLayer(d_model=args.hidden, nhead=args.attn_heads,
-                                                        dim_feedforward=4 * args.hidden, dropout=args.dropout)
-        self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=args.layers)
+                                                        dim_feedforward=args.ff_fold * args.hidden,
+                                                        dropout=args.dropout)
+        self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=args.decoder_layers)
         self.encoder = Encoder(args)
         self.softmax = nn.LogSoftmax(dim=-1)
         self.relation = args.relation
@@ -26,9 +27,10 @@ class Model(nn.Module):
 
         content_ = self.left_embedding(content, content_mask)
         # bs, max_code_length, hidden
+
         if self.relation:
-            paths_ = self.path_embedding(paths, paths_mask, path_map)
-        # bs,max_code_length,max_code_length,hidden
+            paths_ = self.path_embedding(paths, paths_mask)
+        # bs,max_path_num,hidden
         else:
             paths_ = None
 
@@ -38,17 +40,14 @@ class Model(nn.Module):
         mask_ = (mask > 0).unsqueeze(1).repeat(1, mask.size(1), 1).unsqueeze(1)
         # bs, 1,max_code_length,max_code_length
 
-        # path_map bs,max_code_length,max_code_length
-        path_mask_ = (path_map > -1).unsqueeze(1).unsqueeze(-1)
-        # ==> bs,1,max_code_length,max_code_length,1
-
-        memory = self.encoder(content_, paths_, mask_, path_mask_)
+        memory = self.encoder(content_, mask_, paths_, path_map)
         # bs, max_code_length, hidden
         return memory, (mask == 0)
 
     def decode(self, memory, f_source, memory_key_padding_mask):
         '''
 
+        :param memory_key_padding_mask:
         :param memory: # bs, max_code_length, hidden
         :param f_source: # bs,max_target_len
         :return:

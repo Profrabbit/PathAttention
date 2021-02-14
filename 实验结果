@@ -1,0 +1,3 @@
+ssh g0091
+cd /dat01/jinzhi/pengh
+source activate pengh
