@@ -31,7 +31,7 @@ class TransformerBlock(nn.Module):
 
         :param path_map: bs,max_code_length,max_code_length
         :param content: bs, max_code_length, hidden
-        :param paths: bs, max_path_num,hidden
+        :param paths: bs, max_path_num+1,hidden
         :param mask: bs, 1,max_code_length,max_code_length
         :return:
         '''
@@ -53,8 +53,7 @@ class Encoder(nn.Module):
         self.n_layers = args.layers
         self.attn_heads = args.attn_heads
         self.dropout = args.dropout
-        # paper noted they used 4*hidden_size for ff_network_hidden_size
-        self.feed_forward_hidden = self.hidden * 4
+        self.feed_forward_hidden = self.hidden * args.ff_fold
         self.activation = args.activation
 
         # multi-layers transformer blocks, deep network
@@ -66,7 +65,7 @@ class Encoder(nn.Module):
         '''
 
         :param content: bs, max_code_length, hidden
-        :param paths: bs,max_path_num,hidden
+        :param paths: bs,max_path_num+1,hidden
         :param mask: bs, 1,max_code_length,max_code_length
         :param path_map: bs,max_code_length,max_code_length
         :return:

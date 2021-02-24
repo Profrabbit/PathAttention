@@ -1,41 +1,58 @@
 import json
 
+with open('./data/target_vocab.json') as f:
+    data = f.readlines()
+    vocab = json.loads(data[0])
+    ordered_list = sorted(vocab.items(), key=lambda item: item[1], reverse=True)
+    sum_ = 0
+    _vocab = dict()
+    count = 0
+    for key, value in ordered_list:
+        sum_ += value
+    for key, value in ordered_list:
+        count += value
+        if count / sum_ >= 0.999:
+            break
+        _vocab[key] = len(_vocab)
+    print(len(vocab))
+    print(len(_vocab))
+    # print(_vocab)
 
-def count(type):
-    a, b, c = 0, 0, 0
-    d = 0
-    uni_dic = dict()
+with open('./data/source_vocab.json') as f:
+    data = f.readlines()
+    vocab = json.loads(data[0])
+    ordered_list = sorted(vocab.items(), key=lambda item: item[1], reverse=True)
+    sum_ = 0
+    _vocab = dict()
+    count = 0
+    a = 0
+    for key, value in ordered_list:
 
-    path = './data/{}.json'.format(type)
-    with open(path, 'r') as f:
-        for line in f.readlines():
-            d += 1
-            data = json.loads(line)
-            uni_path_num = len(data['paths'])
-            if uni_path_num in uni_dic:
-                uni_dic[uni_path_num] += 1
-            else:
-                uni_dic[uni_path_num] = 1
-            path_num = len(data['paths_map'])
-            num = len(data['content'])
-            a += uni_path_num
-            b += path_num
-            c += (num * num)
-    print(a / c)
-    print(b / c)
-    print(a / d)
-    print(b / d)
-    ordered_list = sorted(uni_dic.items(), key=lambda item: item[0], reverse=False)
-    temp = 0
-    for k, v in ordered_list:
-        temp += v
-        print('<={} => {}'.format(k, temp / d))
+        a += 1
+        sum_ += value
+
+    for key, value in ordered_list:
+
+        count += value
+        if count / sum_ >= 0.999:
+            break
+        _vocab[key] = len(_vocab)
+    print(len(vocab))
+    print(len(_vocab))
+    # print(_vocab)
+'''
+
+43568
+34480
+126883
+126890
+97152
 
 
-if __name__ == '__main__':
-    count(type='valid')
-    '''
-    <=512 => 0.920781118540495
-    百分之92的样本的独特的边小于512条
-    
-    '''
+43568
+34480
+126890
+126890
+91473
+
+'''

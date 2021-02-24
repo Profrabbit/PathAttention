@@ -26,12 +26,9 @@ class PathAttenDataset(Dataset):
         self.s_vocab = s_vocab
         self.t_vocab = t_vocab
         self.args = args
+        self.type = type
         assert type in ['train', 'test', 'valid']
         if self.on_memory:
-            # self.pkl_path = os.path.join(self.dataset_dir, type + '.pkl')
-            # with open(self.pkl_path, 'rb') as f:
-            #     self.data = pkl.load(f)
-            #     self.corpus_line = len(self.data)
             self.json_path = os.path.join(self.dataset_dir, type + '.json')
             with open(self.json_path, 'r') as f:
                 self.data = f.readlines()
@@ -83,6 +80,7 @@ class PathAttenDataset(Dataset):
             f_target = f_target[:self.args.max_target_len] + [self.t_vocab.pad_index] * abs(
                 self.args.max_target_len - len(f_target))
             # f_target: max_target_len
+
             return f_source, f_target
 
         def content_process(data):
@@ -115,7 +113,8 @@ class PathAttenDataset(Dataset):
             paths = paths[:self.args.max_path_num]
             # 2) use filtered paths and max_code_length to filter paths_map
 
-            paths_map_ = [[-1 for _ in range(self.args.max_code_length)] for _ in range(self.args.max_code_length)]
+            paths_map_ = [[self.args.max_path_num for _ in range(self.args.max_code_length)] for _ in
+                          range(self.args.max_code_length)]
             paths_map_ = torch.tensor(paths_map_)
 
             for key, value in paths_map:

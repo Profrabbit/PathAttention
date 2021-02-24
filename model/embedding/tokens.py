@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from .positional import PositionalEmbedding
+import math
 
 
 class TokenEmbedding(nn.Module):
@@ -61,7 +62,6 @@ class TokenEmbedding(nn.Module):
 class LeftEmbedding(TokenEmbedding):
     def __init__(self, args, vocab):
         super().__init__(args, vocab)
-        assert self.vocab.type == 'source'
         self.p = PositionalEmbedding(args.hidden, args.max_code_length)
 
     def forward(self, content, content_mask):
@@ -84,7 +84,6 @@ class LeftEmbedding(TokenEmbedding):
 class RightEmbedding(TokenEmbedding):
     def __init__(self, args, vocab):
         super().__init__(args, vocab)
-        assert self.vocab.type == 'target'
         self.out = nn.Linear(self.args.hidden, self.vocab_size)
         self.p = PositionalEmbedding(args.hidden, args.max_target_len)
 

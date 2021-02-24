@@ -1,2 +1,2 @@
 from .dataset import PathAttenDataset
-from .vocab import TextVocab
+from .vocab import TextVocab, UniTextVocab

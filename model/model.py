@@ -30,7 +30,7 @@ class Model(nn.Module):
 
         if self.relation:
             paths_ = self.path_embedding(paths, paths_mask)
-        # bs,max_path_num,hidden
+        # bs,(max_path_num+1),hidden
         else:
             paths_ = None
 
@@ -47,6 +47,7 @@ class Model(nn.Module):
     def decode(self, memory, f_source, memory_key_padding_mask):
         '''
 
+        :param tgt_key_padding_mask:
         :param memory_key_padding_mask:
         :param memory: # bs, max_code_length, hidden
         :param f_source: # bs,max_target_len
@@ -58,11 +59,13 @@ class Model(nn.Module):
         f_len = f_source.shape[-1]
         tgt_mask = (torch.ones(f_len, f_len).tril_() == 0).to(memory.device)
         memory_key_padding_mask = memory_key_padding_mask.to(memory.device)
+        tgt_key_padding_mask = (f_source == 0).to(memory.device)
         feature = self.decoder(f_source_.permute(1, 0, 2), memory.permute(1, 0, 2), tgt_mask=tgt_mask,
+                               tgt_key_padding_mask=tgt_key_padding_mask,
                                memory_key_padding_mask=memory_key_padding_mask)
         # tgt_mask：用作构建三角矩阵 L*L
         # memory_mask：len(tgt)*len(mem) 通常应该不会使用
-        # tgt_key_padding_mask：bs*len(tgt) 用作tgt端的self attn的padding 但是因为padding的loss不会计算 所以应该也不用使用
+        # tgt_key_padding_mask：bs*len(tgt) 用作tgt端的self attn的padding 但是因为padding的loss不会计算 所以应该也不用使用 保险一点还是用上吧
         # memory_key_padding_mask：用作tgt和mem之间attn时 attn传入的key padding mask 用来确定哪些key在被attn时被忽略 bs*len(mem)
         # True代表会被mask
         feature = feature.permute(1, 0, 2)

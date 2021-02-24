@@ -32,7 +32,7 @@ class MultiHeadedAttention(nn.Module):
         :param query: bs, max_code_length, hidden
         :param key: bs, max_code_length, hidden
         :param value: bs, max_code_length, hidden
-        :param relation: bs, max_path_num,hidden
+        :param relation: bs, max_path_num+1,hidden//heads
         :param mask:bs, 1,max_code_length,max_code_length
         :return:
         '''
@@ -40,16 +40,17 @@ class MultiHeadedAttention(nn.Module):
 
         query, key, value = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
                              for l, x in zip(self.linear_layers, (query, key, value))]
-        if relation is not None:
-            relation_k, relation_v = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2) for l, x in
-                                      zip([self.linear_layers[1], self.linear_layers[2]], (relation, relation))]
+        # if relation is not None:
+        #     # relation_k, relation_v = [l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2) for l, x in
+        #     #                           zip([self.linear_layers[1], self.linear_layers[2]], (relation, relation))]
+        #     relation_k = relation.unsqueeze(1).expand(-1, query.shape[1], -1, -1)
+        #     relation_v = relation_k
+        #     # relation_k,relation_v :bs,h,max_path_num,dim
+        #
+        # else:
+        #     relation_k, relation_v = None, None
 
-            # relation_k,relation_v :bs,h,max_path_num,dim
-
-        else:
-            relation_k, relation_v = None, None
-
-        x, attn = self.attention(query, key, value, relation_k, relation_v, path_map=path_map, mask=mask,
+        x, attn = self.attention(query, key, value, relation, path_map=path_map, mask=mask,
                                  dropout=self.dropout)
 
         x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.h * self.d_k)

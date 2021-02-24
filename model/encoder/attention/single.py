@@ -10,15 +10,14 @@ class RelationAwareAttention(nn.Module):
     Compute 'Scaled Dot Product Attention
     """
 
-    def forward(self, query, key, value, relation_k=None, relation_v=None, path_map=None, mask=None, dropout=None):
+    def forward(self, query, key, value, relation=None, path_map=None, mask=None, dropout=None):
         '''
 
         :param path_map: bs,max_code_length,max_code_length
         :param query: bs, head,max_code_length, hidden//head
         :param key:
         :param value:
-        :param relation_k: bs,h,max_path_num,dim
-        :param relation_v: bs,h,max_path_num,dim
+        :param relation: bs,max_path_num+1,hidden//head
         :param mask:bs, 1,max_code_length,max_code_length
         :param dropout:
         :return:
@@ -36,32 +35,12 @@ class RelationAwareAttention(nn.Module):
         '''
         # TODO
         score = torch.einsum('bhik,bhjk->bhij', query, key)
-        bs, max_code_length = query.shape[0], query.shape[2]
+        bs, h, max_code_length, dim = query.shape
 
-        if relation_k is not None:
-            bs, h, max_path_num, dim = relation_k.shape
-
-            # bs,h,max_path_num,dim
-            # bs,h,max_code_length,dim
-            # bs,max_code_length,max_code_length
-
-            # 1)bs,h,max_path_num,dim and bs,h,max_code_length,max_code_length
-            # -> bs,h,max_code_length,max_code_length,dim
-
-            relation_k = torch.cat((relation_k, torch.zeros(1, 1, 1, 1).expand(bs, h, -1, dim).to(relation_k.device)),
-                                   dim=2)
+        if relation is not None:
+            bs, max_path_num, dim = relation.shape
             # relation_k: bs,h,(max_path_num+1),dim
-
-            path_map_ = path_map.masked_fill(path_map == -1, max_path_num).unsqueeze(1).expand(-1, h, -1, -1)
-            # path_map: bs,h,max_code_length,max_code_length
-
-            output = torch.gather(relation_k.unsqueeze(2).expand(-1, -1, max_code_length, -1, -1), 3,
-                                  path_map_.unsqueeze(-1).expand(-1, -1, -1, -1, dim))
-            # relation_k: bs,h,max_code_length,(max_path_num+1),dim
-            # path_map: bs,h,max_code_length,max_code_length,dim
-            # output:bs,h,max_code_length,max_code_length,dim
-
-            score_r = torch.einsum('bhik,bhijk->bhij', query, output)
+            score_r = torch.matmul(query, relation.unsqueeze(1).transpose(-1, -2)).gather(-1, path_map.unsqueeze(1))
             score += score_r
 
         scores = score / math.sqrt(query.size(-1))
@@ -76,30 +55,10 @@ class RelationAwareAttention(nn.Module):
 
         attn_sum = torch.einsum('bhij,bhjk->bhik', p_attn, value)
 
-        if relation_v is not None:
-            bs, h, max_path_num, dim = relation_v.shape
-
-            # bs,h,max_path_num,dim
-            # bs,h,max_code_length,dim
-            # bs,max_code_length,max_code_length
-
-            # 1)bs,h,max_path_num,dim and bs,h,max_code_length,max_code_length
-            # -> bs,h,max_code_length,max_code_length,dim
-
-            relation_v = torch.cat((relation_v, torch.zeros(1, 1, 1, 1).expand(bs, h, -1, dim).to(relation_v.device)),
-                                   dim=2)
-            # relation_k: bs,h,(max_path_num+1),dim
-
-            path_map_ = path_map.masked_fill(path_map == -1, max_path_num).unsqueeze(1).expand(-1, h, -1, -1)
-            # path_map: bs,h,max_code_length,max_code_length
-
-            output = torch.gather(relation_v.unsqueeze(2).expand(-1, -1, max_code_length, -1, -1), 3,
-                                  path_map_.unsqueeze(-1).expand(-1, -1, -1, -1, dim))
-            # relation_k: bs,h,max_code_length,(max_path_num+1),dim
-            # path_map: bs,h,max_code_length,max_code_length,dim
-            # output:bs,h,max_code_length,max_code_length,dim
-
-            r_attn_sum = torch.einsum('bhij,bhijk->bhik', p_attn, output)
+        if relation is not None:
+            bs, max_path_num, dim = relation.shape
+            r_attn_sum = torch.zeros(bs, h, max_code_length, max_path_num).to(relation.device). \
+                scatter_add_(-1, path_map.unsqueeze(1).expand(-1, h, -1, -1), p_attn).matmul(relation.unsqueeze(1))
             attn_sum += r_attn_sum
 
         return attn_sum, p_attn

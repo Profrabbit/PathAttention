@@ -15,7 +15,7 @@ def boolean_string(s):
     return s == 'True'
 
 
-METHOD_NAME, NUM, Str = 'METHODNAME', 'NUM', 'STR'
+METHOD_NAME, NUM, Str = '<METHODNAME>', '<NUM>', '<STR>'
 USED = 'USED'
 
 inter_dic_path = './data/path_dic.pkl'
@@ -256,6 +256,11 @@ def __terminals(ast, node_index, code_tokens, docstring):
         if "'" in code or '"' in code or '#' in code:
             code_tokens[i] = Str  # 井号形注释并不会出现在ast里边，所以一旦出现在code tokens之后，就无法用ast的方法删除掉
             # ensure that there is not string in code token list
+        try:
+            _ = float(code)
+            code_tokens[i] = NUM
+        except ValueError:
+            continue
     return paths, code_tokens
 
 
@@ -511,16 +516,15 @@ def process(args):
     print('Target Vocab Size = {}'.format(len(target_dic)))
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--type', choices=['train', 'valid', 'test'], type=str, default='valid')
+    parser.add_argument('--type', choices=['train', 'valid', 'test'], type=str, default='train')
     parser.add_argument('--save_dir', type=str, default='./data')
     parser.add_argument('--file', type=str, )  # default='./test.jsonl' not work
     parser.add_argument('--file_num', type=int, default=1000)  # not work
     parser.add_argument('--max_path_length', type=int, default=8)
     parser.add_argument('--max_path_width', type=int, default=2)
-    parser.add_argument('--text_vocab', type=boolean_string, default=True)
+    parser.add_argument('--text_vocab', type=boolean_string, default=False)
     args = parser.parse_args()
     process(args)
 
@@ -712,5 +716,3 @@ Target Vocab Size = 7675
 因为相同的path batch是没有什么意义的 纯属浪费计算资源
 
 '''
-
-

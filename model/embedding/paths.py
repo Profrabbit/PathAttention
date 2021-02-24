@@ -9,7 +9,7 @@ class PathEmbedding(nn.Module):
         self.args = args
         self.embedding = nn.Embedding(self.args.path_embedding_num + 1, self.args.path_embedding_size,
                                       padding_idx=self.args.path_embedding_num)
-        self.rnn = nn.GRU(self.args.path_embedding_size, self.args.hidden, batch_first=True)
+        self.rnn = nn.GRU(self.args.path_embedding_size, self.args.hidden // self.args.attn_heads, batch_first=True)
 
     def forward(self, paths, paths_mask):
         '''
@@ -56,5 +56,6 @@ class PathEmbedding(nn.Module):
         #
         # p_9 = p_8.view(path_map.shape[0], path_map.shape[1], path_map.shape[2], -1)
         # # bs,max_code_length,max_code_length,hidden
+        relation = torch.cat((p_7, torch.zeros(1, 1, 1).expand(bs, -1, p_7.shape[-1]).to(p_7.device)), dim=1)
 
-        return p_7
+        return relation

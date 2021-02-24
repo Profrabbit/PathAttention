@@ -1,3 +1,10 @@
 ssh g0091
 cd /dat01/jinzhi/pengh
 source activate pengh
+
+debug记录：
+第一个 再仔细看看code transformer这个文章 看看有没有源码之类的 注意看看预处理的方式
+第二个 再看看code2seq的源码
+
+第一个 tokenize的type 这个东西有作用吗？
+第二个 我觉得也可能是模型需要再跑跑 感觉模型最高估计就是0.27左右了
