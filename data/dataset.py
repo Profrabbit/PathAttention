@@ -107,7 +107,7 @@ class PathAttenDataset(Dataset):
 
         def path_process(data):
             paths = data['paths']  # [[,,,,],[,,,,,]]
-            paths_map = data['paths_map']  # [[l,r],idx]
+            paths_map = data['paths_map']  # [[l,r],idx] => {idx:[l,r,l,r]}
 
             # 1) use max_path_num to filter paths
             paths = paths[:self.args.max_path_num]
@@ -118,11 +118,9 @@ class PathAttenDataset(Dataset):
             paths_map_ = torch.tensor(paths_map_)
 
             for key, value in paths_map:
-                l, r = key
-                if l >= self.args.max_code_length or r >= self.args.max_code_length or value >= self.args.max_path_num:
-                    continue
-                else:
-                    paths_map_[l, r] = value
+                assert len(value) % 2 == 0
+                for i in range(0, len(value), 2):
+                    paths_map_[value[i], value[i + 1]] = key
 
             paths_mask_ = []
             paths_ = []

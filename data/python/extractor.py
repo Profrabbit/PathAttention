@@ -278,13 +278,13 @@ def process_path(code_tokens, original_code, docstring, args):
     def get_equal_lis(paths, sample_path):
         if len(paths) == 0:
             paths.append(sample_path)
-            return len(paths)
+            return len(paths) - 1  # 卧槽 这咋回事？？？这等于说path全乱了 这样居然还会提升？？？ 好吧等于第一次出现的path对应的映射就会有问题 我干！ 其他的没有问题
         else:
             for i, _lis in enumerate(paths):
                 if _lis == sample_path:
                     return i
             paths.append(sample_path)
-            return len(paths)
+            return len(paths) - 1
 
     paths = []
     paths_map = []
