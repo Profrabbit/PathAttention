@@ -179,3 +179,7 @@ scp -r /var/data/pengh/PathAttention/data/csn_python/raw_data jinzhi@CNGrid12@11
 scp -r /dat01/jinzhi/pengh/PathAttention/catch   pengh@47.104.223.166:/var/data/pengh/PathAttention/
 scp -r /dat01/jinzhi/pengh/PathAttention/data   pengh@47.104.223.166:/var/data/pengh/PathAttention/
 
+python multi_language_parser.py
+python multi_language_parser.py --type=test
+python multi_language_parser.py --type=valid
+\
