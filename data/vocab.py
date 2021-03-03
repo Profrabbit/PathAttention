@@ -18,7 +18,7 @@ class UniTextVocab(object):
         self.type = 'uni'
         self.__special__()
         print('Get Uni Vocab')
-        self.dataset_dir = os.path.join('./data', args.dataset, 'data')
+        self.dataset_dir = os.path.join('./data', args.dataset)
         with open(os.path.join(self.dataset_dir, 'source' + '_vocab.json'), 'r') as f:
             source_vocab_dict = json.load(f)
         with open(os.path.join(self.dataset_dir, 'target' + '_vocab.json'), 'r') as f:
@@ -87,7 +87,7 @@ class TextVocab(object):
         self.__special__()
         assert type in ['source', 'target']
         print('Get {} Vocab'.format(type))
-        self.dataset_dir = os.path.join('./data', args.dataset, 'data')
+        self.dataset_dir = os.path.join('./data', args.dataset)
         with open(os.path.join(self.dataset_dir, type + '_vocab.json'), 'r') as f:
             vocab_dict = json.load(f)
         self.sum_tokens = 0

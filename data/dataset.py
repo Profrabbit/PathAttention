@@ -22,7 +22,7 @@ class PathAttenDataset(Dataset):
 
     def __init__(self, args, s_vocab, t_vocab, type):
         self.on_memory = args.on_memory
-        self.dataset_dir = os.path.join('./data', args.dataset, 'data')
+        self.dataset_dir = os.path.join('./data', args.dataset)
         self.s_vocab = s_vocab
         self.t_vocab = t_vocab
         self.args = args
@@ -85,23 +85,30 @@ class PathAttenDataset(Dataset):
 
         def content_process(data):
             content = data['content']
-            content_ = []
-            for tokens in content:
-                l_ = len(tokens)
-                list_ = []
-                for token in tokens:
-                    list_.append(self.s_vocab.find(token))
-                list_ = list_[:self.args.sub_token_length] + [self.s_vocab.pad_index] * abs(
-                    self.args.sub_token_length - l_)
-                content_.append(list_)
-            content_ = content_[:self.args.max_code_length] + [
-                [self.s_vocab.pad_index] * self.args.sub_token_length] * abs(
-                self.args.max_code_length - len(content_))
-            # content_:max_code_length*sub_token_length
-            content_mask_ = [min(len(tokens), self.args.sub_token_length) * [1] + abs(
-                self.args.sub_token_length - len(tokens)) * [0] for tokens in content][
-                            :self.args.max_code_length] + [[0] * self.args.sub_token_length] * abs(
+
+            content_ = [self.s_vocab.find(token) for token in content][:self.args.max_code_length] + [
+                self.s_vocab.pad_index] * abs(self.args.max_code_length - len(content))
+            # content_: max_code_length
+            content_mask_ = [1 for _ in content][:self.args.max_code_length] + [0] * abs(
                 self.args.max_code_length - len(content))
+            # content_mask_: max_code_length
+            # --------------------------
+            # for tokens in content:
+            #     l_ = len(tokens)
+            #     list_ = []
+            #     for token in tokens:
+            #         list_.append(self.s_vocab.find(token))
+            #     list_ = list_[:self.args.sub_token_length] + [self.s_vocab.pad_index] * abs(
+            #         self.args.sub_token_length - l_)
+            #     content_.append(list_)
+            # content_ = content_[:self.args.max_code_length] + [
+            #     [self.s_vocab.pad_index] * self.args.sub_token_length] * abs(
+            #     self.args.max_code_length - len(content_))
+            # content_:max_code_length*sub_token_length
+            # content_mask_ = [min(len(tokens), self.args.sub_token_length) * [1] + abs(
+            #     self.args.sub_token_length - len(tokens)) * [0] for tokens in content][
+            #                 :self.args.max_code_length] + [[0] * self.args.sub_token_length] * abs(
+            #     self.args.max_code_length - len(content))
             # content_mask_: max_code_length*sub_token_length
             return content_, content_mask_
 
@@ -112,15 +119,19 @@ class PathAttenDataset(Dataset):
             # 1) use max_path_num to filter paths
             paths = paths[:self.args.max_path_num]
             # 2) use filtered paths and max_code_length to filter paths_map
-
+            # TODO add random select path
             paths_map_ = [[self.args.max_path_num for _ in range(self.args.max_code_length)] for _ in
                           range(self.args.max_code_length)]
             paths_map_ = torch.tensor(paths_map_)
 
-            for key, value in paths_map:
+            for key, value in paths_map.items():
                 assert len(value) % 2 == 0
+                if int(key) >= self.args.max_path_num: continue
                 for i in range(0, len(value), 2):
-                    paths_map_[value[i], value[i + 1]] = key
+                    l, r = value[i], value[i + 1]
+                    if l >= self.args.max_code_length or r >= self.args.max_code_length:
+                        continue
+                    paths_map_[l, r] = int(key)
 
             paths_mask_ = []
             paths_ = []
@@ -143,7 +154,6 @@ class PathAttenDataset(Dataset):
         paths_map_, paths_, paths_mask_ = path_process(data)
         return {'f_source': f_source, 'f_target': f_target, 'content': content_, 'content_mask': content_mask_,
                 'path_map': paths_map_, 'paths': paths_, 'paths_mask': paths_mask_}
-        # 应该没啥问题吧
 
     def get_corpus_line(self, item):
         if self.on_memory:

@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import datetime
 import os
 from rouge import FilesRouge
-from torch.optim.lr_scheduler import StepLR
+from .optim_schedule import ScheduledOptim
 
 
 class Trainer:
@@ -24,10 +24,12 @@ class Trainer:
         self.train_data = train_data
         self.test_data = test_data
         self.infer_data = infer_data
-        self.optim = Adam(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+        self.optim = Adam(self.model.parameters(), lr=self.args.lr, betas=(0.9, 0.98), eps=1e-9,
+                          weight_decay=self.args.weight_decay)
+        self.optim_schedule = ScheduledOptim(self.optim, self.args.hidden, n_warmup_steps=self.args.warmup_steps)
         self.clip = self.args.clip
-        self.writer_path = '{}_{}'.format('relation' if args.relation else 'Naive',
-                                          datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+        self.writer_path = '{}_{}_{}'.format('relation' if args.relation else 'Naive', args.dataset,
+                                             datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
         print(self.writer_path)
         self.tensorboard_writer = SummaryWriter(os.path.join('run', self.writer_path))
         self.writer = open(os.path.join('run', self.writer_path, 'experiment.txt'), 'w')
@@ -35,11 +37,9 @@ class Trainer:
         self.iter = -1
         self.log_freq = args.log_freq
         self.t_vocab = t_vocab
-        self.dataset_dir = os.path.join('./data', self.args.dataset, 'data')
         self.best_epoch, self.best_loss = 0, float('inf')
         self.accu_steps = self.args.accu_batch_size // self.args.batch_size
         self.criterion = nn.NLLLoss(ignore_index=0)
-        self.scheduler = StepLR(self.optim, step_size=2, gamma=0.5)
         if self.args.relation:
             print(
                 "Total Parameters: {}*1e6".format(sum([p.nelement() for _, p in self.model.named_parameters()]) // 1e6),
@@ -82,7 +82,6 @@ class Trainer:
 
     def train(self, epoch):
         self.iteration(epoch, self.train_data)
-        self.scheduler.step()
 
     def test(self, epoch):
         self.iteration(epoch, self.test_data, train=False)
@@ -108,7 +107,7 @@ class Trainer:
                          bar_format="{l_bar}{r_bar}")
         avg_loss = 0.0
         if train:
-            self.optim.zero_grad()
+            self.optim_schedule.zero_grad()
         for i, data in data_iter:
             data = {key: value.to(self.device) for key, value in data.items()}
             if train:
@@ -122,8 +121,8 @@ class Trainer:
                 if self.clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
                 if (i + 1) % self.accu_steps == 0:
-                    self.optim.step()
-                    self.optim.zero_grad()
+                    self.optim_schedule.step_and_update_lr()
+                    self.optim_schedule.zero_grad()
             else:
                 self.model.eval()
                 with torch.no_grad():

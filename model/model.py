@@ -17,6 +17,12 @@ class Model(nn.Module):
         self.encoder = Encoder(args)
         self.softmax = nn.LogSoftmax(dim=-1)
         self.relation = args.relation
+        self.args = args
+        if self.args.uni_vocab:
+            self.right_embedding.embedding.weight = self.left_embedding.embedding.weight
+        if self.args.weight_tying:
+            # assert not self.args.pretrain
+            self.right_embedding.out.weight = self.right_embedding.embedding.weight
 
     def encode(self, data):
         content = data['content']
@@ -25,7 +31,7 @@ class Model(nn.Module):
         paths = data['paths']
         paths_mask = data['paths_mask']
 
-        content_ = self.left_embedding(content, content_mask)
+        content_ = self.left_embedding(content)
         # bs, max_code_length, hidden
 
         if self.relation:
@@ -34,15 +40,15 @@ class Model(nn.Module):
         else:
             paths_ = None
 
-        mask = torch.count_nonzero(content, dim=-1)  # 1.7.0
+        # mask = torch.count_nonzero(content, dim=-1)  # 1.7.0
         # bs, max_code_length,sub_token_length -> bs, max_code_length
 
-        mask_ = (mask > 0).unsqueeze(1).repeat(1, mask.size(1), 1).unsqueeze(1)
+        mask_ = (content_mask > 0).unsqueeze(1).repeat(1, content_mask.size(1), 1).unsqueeze(1)
         # bs, 1,max_code_length,max_code_length
 
         memory = self.encoder(content_, mask_, paths_, path_map)
         # bs, max_code_length, hidden
-        return memory, (mask == 0)
+        return memory, (content_mask == 0)
 
     def decode(self, memory, f_source, memory_key_padding_mask):
         '''

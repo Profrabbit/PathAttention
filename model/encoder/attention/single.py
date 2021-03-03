@@ -41,8 +41,8 @@ class RelationAwareAttention(nn.Module):
             bs, max_path_num, dim = relation.shape
             # relation_k: bs,h,(max_path_num+1),dim
             score_r = torch.matmul(query, relation.unsqueeze(1).transpose(-1, -2)).gather(-1, path_map.unsqueeze(1))
-            score += score_r
-
+            score += score_r  # TODO 这个地方可以考虑加上一个dropout
+        # TODO xl式的相对位置编码
         scores = score / math.sqrt(query.size(-1))
 
         if mask is not None:
