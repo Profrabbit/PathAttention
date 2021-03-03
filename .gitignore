@@ -1,5 +1,4 @@
-*.jsonl
-*.gz
+*.json
 /raw_data
 /vendor
 /catch
