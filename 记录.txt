@@ -176,8 +176,13 @@ precision=0.2463 recall=0.1832 f1=0.2101
 
 scp -r /var/data/pengh/PathAttention/data/csn_python/raw_data jinzhi@CNGrid12@119.90.38.52:/dat01/jinzhi/pengh/PathAttention/data/csn_python/
 
-scp -r /dat01/jinzhi/pengh/PathAttention/catch   pengh@47.104.223.166:/var/data/pengh/PathAttention/
-scp -r /dat01/jinzhi/pengh/PathAttention/data   pengh@47.104.223.166:/var/data/pengh/PathAttention/
+scp -r /dat01/jinzhi/pengh/PathAttention/trainer   pengh@39.105.32.27:/var/data/pengh/PathAttention/
+scp -r /dat01/jinzhi/pengh/PathAttention/catch  /dat01/jinzhi/pengh/PathAttention/data /dat01/jinzhi/pengh/PathAttention/model /dat01/jinzhi/pengh/PathAttention/__main__.py pengh@39.105.32.27:/var/data/pengh/PathAttention/
+scp -r /dat01/jinzhi/pengh/PathAttention/data   pengh@39.105.32.27:/var/data/pengh/PathAttention/
+scp -r /dat01/jinzhi/pengh/PathAttention/model   pengh@39.105.32.27:/var/data/pengh/PathAttention/
+scp -r /dat01/jinzhi/pengh/PathAttention/__main__.py   pengh@39.105.32.27:/var/data/pengh/PathAttention/
+
+
 
 python multi_language_parser.py
 python multi_language_parser.py --type=test

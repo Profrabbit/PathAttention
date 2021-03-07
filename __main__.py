@@ -39,7 +39,7 @@ def train():
     # vocab
     parser.add_argument("--s_vocab_portion", type=float, default=0.999, help="if uni, then not work")
     parser.add_argument("--t_vocab_portion", type=float, default=1, help="if uni, then not work")
-    parser.add_argument("--vocab_threshold", type=int, default=10, help="if use uni vocab, and use vocab threshold")
+    parser.add_argument("--vocab_threshold", type=int, default=100, help="if use uni vocab, and use vocab threshold")
     parser.add_argument("--uni_vocab", type=boolean_string, default=True,
                         help="source vocab (embedding) = target vocab (embedding)")
     parser.add_argument("--weight_tying", type=boolean_string, default=True,
@@ -47,7 +47,7 @@ def train():
 
     # trainer
     parser.add_argument("--with_cuda", type=boolean_string, default=True, help="training with CUDA: true or false")
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate of adam")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
     parser.add_argument("--log_freq", type=int, default=5000, help="printing loss every n iter: setting n")
     parser.add_argument("--clip", type=float, default=0, help="0 is no clip")
     parser.add_argument("--batch_size", type=int, default=64, help="number of batch_size")  # 4,16,8 on two gpus
@@ -56,13 +56,13 @@ def train():
     parser.add_argument("--val_batch_size", type=int, default=64, help="number of batch_size of valid")
     parser.add_argument("--infer_batch_size", type=int, default=32, help="number of batch_size of infer")
     parser.add_argument("--epochs", type=int, default=20, help="number of epochs")
-    parser.add_argument("--num_workers", type=int, default=16, help="dataloader worker size")
+    parser.add_argument("--num_workers", type=int, default=32, help="dataloader worker size")
     parser.add_argument("--save", type=boolean_string, default=True, help="whether to save model checkpoint")
     parser.add_argument("--weight_decay", type=float, default=3e-5, help="")
-    parser.add_argument("--label_smoothing", type=float, default=0.1, help="0.1 in transformer paper")
-    parser.add_argument("--warmup_steps", type=int, default=4000, help="4000 in transformer paper")
-    parser.add_argument("--dropout", type=float, default=0.1, help="0.1 in transformer paper")
-
+    parser.add_argument("--label_smoothing", type=float, default=0.2, help="0.1 in transformer paper")
+    parser.add_argument("--warmup_steps", type=int, default=20000, help="4000 in transformer paper")
+    parser.add_argument("--dropout", type=float, default=0.2, help="0.1 in transformer paper")
+    parser.add_argument("--warmup", type=boolean_string, default=False, help="")
     # glove
     parser.add_argument("--pretrain", type=boolean_string, default=True, help="")
     parser.add_argument("--embedding_file", type=str, default='/dat01/jinzhi/pengh/glove.42B.300d.txt', help="")

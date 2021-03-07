@@ -1,58 +1,21 @@
 import json
+from tqdm import tqdm
+code_count = dict()
+with open('./test.json') as f:
+    lines = f.readlines()
+    for line in tqdm(lines):
+        data = json.loads(line)
+        l = len(data['content'])
+        if l in code_count:
+            code_count[l] += 1
+        else:
+            code_count[l] = 1
+    _keys = sorted(code_count.keys())
+    _c = 0
+    _s = 0
+    for k in _keys:
+        _s += code_count[k]
 
-with open('./data/target_vocab.json') as f:
-    data = f.readlines()
-    vocab = json.loads(data[0])
-    ordered_list = sorted(vocab.items(), key=lambda item: item[1], reverse=True)
-    sum_ = 0
-    _vocab = dict()
-    count = 0
-    for key, value in ordered_list:
-        sum_ += value
-    for key, value in ordered_list:
-        count += value
-        if count / sum_ >= 0.999:
-            break
-        _vocab[key] = len(_vocab)
-    print(len(vocab))
-    print(len(_vocab))
-    # print(_vocab)
-
-with open('./data/source_vocab.json') as f:
-    data = f.readlines()
-    vocab = json.loads(data[0])
-    ordered_list = sorted(vocab.items(), key=lambda item: item[1], reverse=True)
-    sum_ = 0
-    _vocab = dict()
-    count = 0
-    a = 0
-    for key, value in ordered_list:
-
-        a += 1
-        sum_ += value
-
-    for key, value in ordered_list:
-
-        count += value
-        if count / sum_ >= 0.999:
-            break
-        _vocab[key] = len(_vocab)
-    print(len(vocab))
-    print(len(_vocab))
-    # print(_vocab)
-'''
-
-43568
-34480
-126883
-126890
-97152
-
-
-43568
-34480
-126890
-126890
-91473
-
-'''
+    for k in _keys:
+        _c += code_count[k]
+        print('len of code <={} has {}'.format(k, _c / _s))

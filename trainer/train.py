@@ -24,9 +24,9 @@ class Trainer:
         self.train_data = train_data
         self.test_data = test_data
         self.infer_data = infer_data
-        self.optim = Adam(self.model.parameters(), lr=self.args.lr, betas=(0.9, 0.98), eps=1e-9,
-                          weight_decay=self.args.weight_decay)
-        self.optim_schedule = ScheduledOptim(self.optim, self.args.hidden, n_warmup_steps=self.args.warmup_steps)
+        self.optim = Adam(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
+        if self.args.warmup:
+            self.optim_schedule = ScheduledOptim(self.optim, self.args.hidden, n_warmup_steps=self.args.warmup_steps)
         self.clip = self.args.clip
         self.writer_path = '{}_{}_{}'.format('relation' if args.relation else 'Naive', args.dataset,
                                              datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
@@ -107,7 +107,10 @@ class Trainer:
                          bar_format="{l_bar}{r_bar}")
         avg_loss = 0.0
         if train:
-            self.optim_schedule.zero_grad()
+            if self.args.warmup:
+                self.optim_schedule.zero_grad()
+            else:
+                self.optim.zero_grad()
         for i, data in data_iter:
             data = {key: value.to(self.device) for key, value in data.items()}
             if train:
@@ -121,8 +124,12 @@ class Trainer:
                 if self.clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
                 if (i + 1) % self.accu_steps == 0:
-                    self.optim_schedule.step_and_update_lr()
-                    self.optim_schedule.zero_grad()
+                    if self.args.warmup:
+                        self.optim_schedule.step_and_update_lr()
+                        self.optim_schedule.zero_grad()
+                    else:
+                        self.optim.step()
+                        self.optim.zero_grad()
             else:
                 self.model.eval()
                 with torch.no_grad():
@@ -140,8 +147,6 @@ class Trainer:
                 self.iter += 1
                 if self.tensorboard_writer is not None:
                     self.tensorboard_writer.add_scalar('Loss', post_fix['Iter loss'], self.iter)
-            # if i % self.log_freq == 0:
-            #     data_iter.write(str(post_fix))
         avg_loss = avg_loss / len(data_iter)
         if not train:
             if avg_loss <= self.best_loss:
