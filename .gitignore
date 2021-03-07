@@ -5,4 +5,6 @@
 /checkpoint
 /run
 /build
+.pyc
+
 
