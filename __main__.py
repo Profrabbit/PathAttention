@@ -53,10 +53,10 @@ def train():
     parser.add_argument("--batch_size", type=int, default=32, help="number of batch_size")
     parser.add_argument("--accu_batch_size", type=int, default=128,
                         help="number of real batch_size per step, setup for save gpu memory")
-    parser.add_argument("--val_batch_size", type=int, default=200, help="number of batch_size of valid")
-    parser.add_argument("--infer_batch_size", type=int, default=200, help="number of batch_size of infer")
+    parser.add_argument("--val_batch_size", type=int, default=128, help="number of batch_size of valid")
+    parser.add_argument("--infer_batch_size", type=int, default=128, help="number of batch_size of infer")
     parser.add_argument("--epochs", type=int, default=50, help="number of epochs")
-    parser.add_argument("--num_workers", type=int, default=32, help="dataloader worker size")
+    parser.add_argument("--num_workers", type=int, default=16, help="dataloader worker size")
     parser.add_argument("--save", type=boolean_string, default=True, help="whether to save model checkpoint")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="")
     parser.add_argument("--label_smoothing", type=float, default=0.1, help="0.1 in transformer paper")

@@ -2,7 +2,7 @@ for your family!
 
 lr：
 {1e-4,4e-5,1e-5}
-
+{relation_python_2021-03-09-18-16-31,relation_python_2021-03-09-18-19-37,relation_python_2021-03-09-18-21-20}
 gru:
 {bi}
 
