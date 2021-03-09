@@ -19,10 +19,9 @@ class TokenEmbedding(nn.Module):
             self.embedding = nn.Embedding.from_pretrained(self.embedding_matrix, padding_idx=self.vocab.pad_index,
                                                           freeze=False)
         else:
-            # self.embedding_dim = self.args.hidden
-            self.embedding = nn.Embedding(self.vocab_size, self.args.hidden, padding_idx=self.vocab.pad_index)
-        # self.linear = nn.Linear(self.embedding_dim,
-        #                         self.args.hidden) if self.embedding_dim != self.args.hidden else None
+            self.embedding = nn.Embedding(self.vocab_size, self.args.embedding_size, padding_idx=self.vocab.pad_index)
+        if args.embedding_size != args.hidden:
+            self.in_ = nn.Linear(args.embedding_size, args.hidden)
 
     def get_embedding(self):
         embedding_dir = './catch/{}'.format(self.args.dataset)
@@ -35,13 +34,11 @@ class TokenEmbedding(nn.Module):
                 print('Load Embedding from Catch')
                 self.embedding_matrix = embedding.clone().detach()
                 assert len(embedding) == self.vocab_size
-                # self.embedding_dim = embedding.shape[-1]
         else:
             with open(self.args.embedding_file, 'r') as f:
                 line = f.readline().strip().split()
-                self.embedding_dim = len(line) - 1
-            # self.embedding_matrix = torch.randn(self.vocab_size, self.embedding_dim)
-            self.embedding_matrix = torch.randn(self.vocab_size, self.args.hidden)
+                embedding_dim = len(line) - 1
+            self.embedding_matrix = torch.randn(self.vocab_size, self.args.embedding_size)
             count = 0
             with open(self.args.embedding_file, 'r', encoding='utf-8') as f:
                 print('Create {} Embedding from raw data'.format(self.vocab.type))
@@ -52,7 +49,8 @@ class TokenEmbedding(nn.Module):
                     idx = self.vocab.find(word)
                     if idx != self.vocab.unk_index:
                         vector = torch.tensor(np.append(np.array(line[1:]),
-                                                        np.array([0] * (self.args.hidden - self.embedding_dim))).astype(
+                                                        np.array(
+                                                            [0] * (self.args.embedding_size - embedding_dim))).astype(
                             np.float))
                         self.embedding_matrix[idx] = vector
                         count += 1
@@ -65,9 +63,16 @@ class TokenEmbedding(nn.Module):
 class LeftEmbedding(TokenEmbedding):
     def __init__(self, args, vocab):
         super().__init__(args, vocab)
-        self.p = PositionalEmbedding(args.hidden, args.max_code_length)
+        if args.absolute_position:
+            self.p = PositionalEmbedding(args.embedding_size, args.max_code_length)
+        else:
+            self.p = None
+        if args.is_named:
+            self.n = nn.Embedding(3, args.embedding_size, padding_idx=2)
+        else:
+            self.n = None
 
-    def forward(self, content):
+    def forward(self, content, named=None):
         '''
 
         :param content: bs,max_code_length
@@ -75,20 +80,25 @@ class LeftEmbedding(TokenEmbedding):
         :return:bs,max_code_length,hidden
         '''
         c_1 = self.embedding(content)
-        # if self.linear:
-        #     c_1 = self.linear(c_1)
-        # bs,max_code_length,hidden
-
-        # c_2 = c_1.masked_fill(content_mask.unsqueeze(-1) == 0, 0.0)
-        # c_3 = torch.sum(c_2, dim=-2)  # bs,max_code_length,hidden
-        return c_1 + self.p(c_1)
+        if self.p:
+            c_1 = c_1 + self.p(c_1)
+        if self.n:
+            c_1 = c_1 + self.n(named)
+        if self.in_:
+            c_1 = self.in_(c_1)
+        return c_1
 
 
 class RightEmbedding(TokenEmbedding):
     def __init__(self, args, vocab):
         super().__init__(args, vocab)
-        self.out = nn.Linear(self.args.hidden, self.vocab_size)
-        self.p = PositionalEmbedding(args.hidden, args.max_target_len)
+        self.out = nn.Linear(args.embedding_size, self.vocab_size)
+        if args.embedding_size != args.hidden:
+            self.out_ = nn.Linear(args.hidden, args.embedding_size)
+        if args.absolute_position:
+            self.p = PositionalEmbedding(args.embedding_size, args.max_code_length)
+        else:
+            self.p = None
 
     def forward(self, f_source):
         '''
@@ -97,10 +107,13 @@ class RightEmbedding(TokenEmbedding):
         :return:bs,max_target_len,hidden
         '''
         c_1 = self.embedding(f_source)
-        # if self.linear:
-        #     c_1 = self.linear(c_1)
-        # bs,max_target_len,hidden
-        return c_1 + self.p(c_1)
+        if self.p:
+            c_1 = c_1 + self.p(c_1)
+        if self.in_:
+            c_1 = self.in_(c_1)
+        return c_1
 
     def prob(self, data):
+        if self.out_:
+            data = self.out_(data)
         return self.out(data)

@@ -91,6 +91,9 @@ class PathAttenDataset(Dataset):
             # content_: max_code_length
             content_mask_ = [1 for _ in content][:self.args.max_code_length] + [0] * abs(
                 self.args.max_code_length - len(content))
+
+            named = data['named']
+            named_ = named[:self.args.max_code_length] + [2] * abs(self.args.max_code_length - len(named))
             # content_mask_: max_code_length
             # --------------------------
             # for tokens in content:
@@ -110,7 +113,7 @@ class PathAttenDataset(Dataset):
             #                 :self.args.max_code_length] + [[0] * self.args.sub_token_length] * abs(
             #     self.args.max_code_length - len(content))
             # content_mask_: max_code_length*sub_token_length
-            return content_, content_mask_
+            return content_, content_mask_, named_
 
         def path_process(data):
             paths = data['paths']  # [[,,,,],[,,,,,]]
@@ -150,10 +153,10 @@ class PathAttenDataset(Dataset):
             return paths_map_, paths_, paths_mask_
 
         f_source, f_target = decoder_process(data)
-        content_, content_mask_ = content_process(data)
+        content_, content_mask_, named_ = content_process(data)
         paths_map_, paths_, paths_mask_ = path_process(data)
         return {'f_source': f_source, 'f_target': f_target, 'content': content_, 'content_mask': content_mask_,
-                'path_map': paths_map_, 'paths': paths_, 'paths_mask': paths_mask_}
+                'path_map': paths_map_, 'paths': paths_, 'paths_mask': paths_mask_, 'named': named_}
 
     def get_corpus_line(self, item):
         if self.on_memory:

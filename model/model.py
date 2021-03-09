@@ -20,6 +20,8 @@ class Model(nn.Module):
         self.args = args
         if self.args.uni_vocab:
             self.right_embedding.embedding.weight = self.left_embedding.embedding.weight
+            if args.embedding_size != args.hidden:
+                self.right_embedding.in_.weight = self.left_embedding.in_.weight
         if self.args.weight_tying:
             # assert not self.args.pretrain
             self.right_embedding.out.weight = self.right_embedding.embedding.weight
@@ -30,8 +32,8 @@ class Model(nn.Module):
         path_map = data['path_map']
         paths = data['paths']
         paths_mask = data['paths_mask']
-
-        content_ = self.left_embedding(content)
+        named = data['named']
+        content_ = self.left_embedding(content, named)
         # bs, max_code_length, hidden
 
         if self.relation:

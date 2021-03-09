@@ -50,18 +50,18 @@ def train():
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
     parser.add_argument("--log_freq", type=int, default=5000, help="printing loss every n iter: setting n")
     parser.add_argument("--clip", type=float, default=0, help="0 is no clip")
-    parser.add_argument("--batch_size", type=int, default=64, help="number of batch_size")  # 4,16,8 on two gpus
-    parser.add_argument("--accu_batch_size", type=int, default=64,
+    parser.add_argument("--batch_size", type=int, default=32, help="number of batch_size")
+    parser.add_argument("--accu_batch_size", type=int, default=128,
                         help="number of real batch_size per step, setup for save gpu memory")
-    parser.add_argument("--val_batch_size", type=int, default=64, help="number of batch_size of valid")
-    parser.add_argument("--infer_batch_size", type=int, default=32, help="number of batch_size of infer")
-    parser.add_argument("--epochs", type=int, default=20, help="number of epochs")
+    parser.add_argument("--val_batch_size", type=int, default=200, help="number of batch_size of valid")
+    parser.add_argument("--infer_batch_size", type=int, default=200, help="number of batch_size of infer")
+    parser.add_argument("--epochs", type=int, default=50, help="number of epochs")
     parser.add_argument("--num_workers", type=int, default=32, help="dataloader worker size")
     parser.add_argument("--save", type=boolean_string, default=True, help="whether to save model checkpoint")
-    parser.add_argument("--weight_decay", type=float, default=3e-5, help="")
-    parser.add_argument("--label_smoothing", type=float, default=0.2, help="0.1 in transformer paper")
+    parser.add_argument("--weight_decay", type=float, default=1e-4, help="")
+    parser.add_argument("--label_smoothing", type=float, default=0.1, help="0.1 in transformer paper")
     parser.add_argument("--warmup_steps", type=int, default=20000, help="4000 in transformer paper")
-    parser.add_argument("--dropout", type=float, default=0.2, help="0.1 in transformer paper")
+    parser.add_argument("--dropout", type=float, default=0.1, help="0.1 in transformer paper")
     parser.add_argument("--warmup", type=boolean_string, default=False, help="")
     # glove
     parser.add_argument("--pretrain", type=boolean_string, default=True, help="")
@@ -71,19 +71,23 @@ def train():
     # '/dat01/jinzhi/pengh/glove.42B.300d.txt'
 
     # path embedding
-    parser.add_argument("--path_embedding_size", type=int, default=32, help="embedding size of path node")
+    parser.add_argument("--path_embedding_size", type=int, default=64, help="embedding size of path node")
     parser.add_argument("--path_embedding_num", type=int, default=81,
                         help="total node type num, and also be used for padding idx!!")  # TODO set node num
+    parser.add_argument("--bidirectional", type=boolean_string, default=True, help="for path gru")
     # transformer
+    parser.add_argument("--embedding_size", type=int, default=512, help="hidden size of transformer model")
     parser.add_argument("--activation", type=str, default='GELU', help="", choices=['GELU', 'RELU'])
-    parser.add_argument("--hidden", type=int, default=512, help="hidden size of transformer model")
-    parser.add_argument("--ff_fold", type=int, default=4, help="ff_hidden = ff_fold * hidden")
-    parser.add_argument("--layers", type=int, default=6, help="number of layers")
-    parser.add_argument("--decoder_layers", type=int, default=6, help="number of decoder layers")
+    parser.add_argument("--hidden", type=int, default=1024, help="hidden size of transformer model")
+    parser.add_argument("--ff_fold", type=int, default=2, help="ff_hidden = ff_fold * hidden")
+    parser.add_argument("--layers", type=int, default=3, help="number of layers")
+    parser.add_argument("--decoder_layers", type=int, default=1, help="number of decoder layers")
     parser.add_argument("--attn_heads", type=int, default=8, help="number of attention heads")
 
     # advance
     parser.add_argument("--relation", type=boolean_string, default=True, help="")
+    parser.add_argument("--is_named", type=boolean_string, default=True, help="")
+    parser.add_argument("--absolute_position", type=boolean_string, default=True, help="")
 
     # debug
     parser.add_argument("--tiny_data", type=int, default=0, help="only a little data for debug")
@@ -92,6 +96,7 @@ def train():
     parser.add_argument("--train", type=boolean_string, default=True, help="Whether to train or just infer")
     parser.add_argument("--load_checkpoint", type=boolean_string, default=False,
                         help="load checkpoint for continue train or infer")
+    parser.add_argument("--checkpoint", type=str, default='', help="load checkpoint for continue train or infer")
     args = parser.parse_args()
     if args.seed:
         setup_seed(20)
@@ -111,7 +116,8 @@ def train():
 
     print("Loading Valid Dataset")
     valid_dataset = PathAttenDataset(args, s_vocab, t_vocab, type='valid')
-
+    print("Loading Test Dataset")
+    test_dataset = PathAttenDataset(args, s_vocab, t_vocab, type='test')
     if args.on_memory:
         num_workers = args.num_workers
     else:
@@ -122,23 +128,25 @@ def train():
         train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=num_workers, shuffle=True)
     else:
         train_data_loader = None
-    test_data_loader = DataLoader(valid_dataset, batch_size=args.val_batch_size, num_workers=num_workers)
-    infer_data_loader = DataLoader(valid_dataset, batch_size=args.infer_batch_size, num_workers=num_workers)
+    valid_data_loader = DataLoader(valid_dataset, batch_size=args.val_batch_size, num_workers=num_workers)
+    valid_infer_data_loader = DataLoader(valid_dataset, batch_size=args.infer_batch_size, num_workers=num_workers)
+    test_infer_data_loader = DataLoader(test_dataset, batch_size=args.infer_batch_size, num_workers=num_workers)
     print("Building Model")
     model = Model(args, s_vocab, t_vocab)
 
     print("Creating Trainer")
-    trainer = Trainer(args=args, model=model, train_data=train_data_loader, test_data=test_data_loader,
-                      infer_data=infer_data_loader, t_vocab=t_vocab)
+    trainer = Trainer(args=args, model=model, train_data=train_data_loader, valid_data=valid_data_loader,
+                      valid_infer_data=valid_infer_data_loader, test_infer_data=test_infer_data_loader, t_vocab=t_vocab)
     if args.load_checkpoint:
-        checkpoint_path = 'checkpoint/Naive_2021-02-18-23-38-45_14.pth'
+        checkpoint_path = 'checkpoint/{}'.format(args.checkpoint)
         trainer.load(checkpoint_path)
     print("Training Start")
     for epoch in range(args.epochs):
         if args.train:
             trainer.train(epoch)
             trainer.test(epoch)
-        trainer.predict(epoch)
+        trainer.predict(epoch, test=False)
+        trainer.predict(epoch, test=True)
     trainer.writer.close()
 
 

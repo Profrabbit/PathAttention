@@ -11,7 +11,7 @@ from .optim_schedule import ScheduledOptim
 
 
 class Trainer:
-    def __init__(self, args, model, train_data, test_data, infer_data, t_vocab):
+    def __init__(self, args, model, train_data, valid_data, valid_infer_data, test_infer_data, t_vocab):
         self.args = args
         cuda_condition = torch.cuda.is_available() and self.args.with_cuda
         self.device = torch.device("cuda:0" if cuda_condition else "cpu")
@@ -22,8 +22,9 @@ class Trainer:
             self.wrap = False
         self.model = model.to(self.device)
         self.train_data = train_data
-        self.test_data = test_data
-        self.infer_data = infer_data
+        self.valid_data = valid_data
+        self.valid_infer_data = valid_infer_data
+        self.test_infer_data = test_infer_data
         self.optim = Adam(self.model.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         if self.args.warmup:
             self.optim_schedule = ScheduledOptim(self.optim, self.args.hidden, n_warmup_steps=self.args.warmup_steps)
@@ -84,7 +85,7 @@ class Trainer:
         self.iteration(epoch, self.train_data)
 
     def test(self, epoch):
-        self.iteration(epoch, self.test_data, train=False)
+        self.iteration(epoch, self.valid_data, train=False)
 
     def label_smoothing_loss(self, logits, targets, eps=0, reduction='mean'):
         if eps == 0:
@@ -164,15 +165,21 @@ class Trainer:
             torch.save(self.model.state_dict(),
                        os.path.join(save_dir, "{}_{}.pth".format(self.writer_path, epoch)))
 
-    def predict(self, epoch):
+    def predict(self, epoch, test=True):
         true_positive, false_positive, false_negative = 0, 0, 0
+        if test:
+            data_loader = self.test_infer_data
+            str_code = 'test'
+        else:
+            data_loader = self.valid_infer_data
+            str_code = 'valid'
 
         def get_ref_strings(predict_strings):
             '''
             :return: [['mlp'],['aaa']]
             '''
             import json
-            infer_file = self.infer_data.dataset.data[:len(predict_strings)]
+            infer_file = data_loader.dataset.data[:len(predict_strings)]  # for tiny data
             refs = []
             for sample in infer_file:
                 target = json.loads(sample)['target']
@@ -189,21 +196,26 @@ class Trainer:
 
         def statistics(predict, original, ref_file, pred_file):
             nonlocal true_positive, false_positive, false_negative
+            from collections import Counter
             for p, o in zip(predict, original):
                 ref_file.write(' '.join(o) + '\n')
                 pred_file.write(' '.join(p) + '\n')
                 p, o = sorted(p), sorted(o)
-                if p == o:
-                    true_positive += len(o)
-                    continue
-                for sub_token in p:
-                    if sub_token in o:
-                        true_positive += 1
-                    else:
-                        false_positive += 1
-                for sub_token in o:
-                    if sub_token not in p:
-                        false_negative += 1
+                common = Counter(p) & Counter(o)
+                true_positive += sum(common.values())
+                false_positive += (len(p)-sum(common.values()))
+                false_negative += (len(o)-sum(common.values()))
+                # if p == o:
+                #     true_positive += len(o)
+                #     continue
+                # for sub_token in p:
+                #     if sub_token in o:
+                #         true_positive += 1
+                #     else:
+                #         false_positive += 1
+                # for sub_token in o:
+                #     if sub_token not in p:
+                #         false_negative += 1
 
         def calculate_results(true_positive, false_positive, false_negative):
             if true_positive + false_positive > 0:
@@ -220,12 +232,13 @@ class Trainer:
                 f1 = 0
             return precision, recall, f1
 
-        data_iter = tqdm(enumerate(self.infer_data),
-                         desc="EP_%s:%d" % ('infer', epoch),
-                         total=len(self.infer_data),
+        data_iter = tqdm(enumerate(data_loader),
+                         desc="EP_%s:%d" % (str_code + '_infer', epoch),
+                         total=len(data_loader),
                          bar_format="{l_bar}{r_bar}")
-        ref_file_name = os.path.join('run', self.writer_path, 'ref.txt')
-        predicted_file_name = os.path.join('run', self.writer_path, 'pred.txt')
+        ref_file_name = os.path.join('run', self.writer_path, 'ref_{}.txt'.format(str_code))
+        predicted_file_name = os.path.join('run', self.writer_path,
+                                           'pred_{}_{}.txt'.format(str_code, epoch))
         with open(ref_file_name, 'w') as ref_file, open(predicted_file_name, 'w') as pred_file:
             predict_strings = []
             for i, data in data_iter:
@@ -251,5 +264,6 @@ class Trainer:
         files_rouge = FilesRouge()
         # rouge = files_rouge.get_scores(predicted_file_name, ref_file_name, avg=True)
         print(
-            "precision={:.6f}, recall={:.6f}, f1={:.6f}".format(precision, recall, f1), file=self.writer, flush=True)
+            "{} precision={:.6f}, recall={:.6f}, f1={:.6f}".format(str_code, precision, recall, f1), file=self.writer,
+            flush=True)
         print('-------------------------------------', file=self.writer, flush=True)

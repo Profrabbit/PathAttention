@@ -6,5 +6,5 @@
 /run
 /build
 *.pyc
-
+/history_run
 

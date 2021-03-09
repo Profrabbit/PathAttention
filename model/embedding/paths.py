@@ -9,7 +9,9 @@ class PathEmbedding(nn.Module):
         self.args = args
         self.embedding = nn.Embedding(self.args.path_embedding_num + 1, self.args.path_embedding_size,
                                       padding_idx=self.args.path_embedding_num)
-        self.rnn = nn.GRU(self.args.path_embedding_size, self.args.hidden // self.args.attn_heads, batch_first=True)
+        self.gru_size = self.args.hidden // self.args.attn_heads if not self.args.bidirectional else self.args.hidden // self.args.attn_heads // 2
+        self.rnn = nn.GRU(self.args.path_embedding_size, self.gru_size, batch_first=True,
+                          bidirectional=self.args.bidirectional)
 
     def forward(self, paths, paths_mask):
         '''
@@ -36,10 +38,12 @@ class PathEmbedding(nn.Module):
         _, re_m_2_idx = torch.sort(m_2_idx)
         p_3 = p_2.index_select(0, m_2_idx)
         p_4 = torch.nn.utils.rnn.pack_padded_sequence(p_3, m_2.cpu(), batch_first=True)
-        _, p_5 = self.rnn(p_4)
-        p_6 = p_5.squeeze(0)  # bs*max_path_num,max_path_length,hidden
+        _, p_5 = self.rnn(p_4)  # p_5: 1,bs*max_path_num,hidden
+        # p_6 = p_5.squeeze(0)  # bs*max_path_num,hidden
+
+        p_6 = p_5.permute(1, 0, 2).contiguous().view(bs * max_path_num, -1)
         p_7 = p_6.index_select(0, re_m_2_idx).view(bs, max_path_num, -1)
-        # bs*max_path_num,hidden
+        # bs,max_path_num,hidden
 
         # temp_p_7 = torch.cat((p_7, torch.zeros(1, p_7.shape[-1]).to(p_7.device)), dim=0)
         # # bs*max_path_num+1,hidden
